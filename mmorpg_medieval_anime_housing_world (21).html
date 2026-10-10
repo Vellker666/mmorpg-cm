@@ -1,0 +1,1493 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fantasy Realm 3D - Poudlard & MMORPG Housing</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;800;900&family=Plus+Jakarta+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Three.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            user-select: none;
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background-color: #0b0f19;
+            color: #fff;
+        }
+        .fantasy-font {
+            font-family: 'Cinzel', serif;
+        }
+        canvas {
+            display: block;
+            width: 100vw;
+            height: 100vh;
+        }
+        .rpg-box {
+            background: rgba(15, 23, 42, 0.94);
+            border: 2px solid #fbbf24;
+            box-shadow: 0 0 25px rgba(251, 191, 36, 0.3), inset 0 0 20px rgba(0,0,0,0.7);
+            backdrop-filter: blur(12px);
+        }
+        .rpg-btn {
+            background: linear-gradient(135deg, #d97706 0%, #b45309 100%);
+            border: 1px solid #fef08a;
+            transition: all 0.2s ease;
+        }
+        .rpg-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(245, 158, 11, 0.5);
+            filter: brightness(1.15);
+        }
+        .rpg-btn:active {
+            transform: translateY(0);
+        }
+        #crosshair {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 12px;
+            height: 12px;
+            border: 2px solid rgba(251, 191, 36, 0.9);
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+            box-shadow: 0 0 8px rgba(251, 191, 36, 0.6);
+        }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: rgba(15, 23, 42, 0.6); }
+        ::-webkit-scrollbar-thumb { background: #d97706; border-radius: 3px; }
+    </style>
+</head>
+<body>
+
+    <div id="canvas-container"></div>
+    <div id="crosshair" class="hidden"></div>
+
+    <div id="character-creation-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/90 backdrop-blur-md">
+        <div class="rpg-box w-full max-w-lg p-8 rounded-2xl border-2 border-amber-500 shadow-2xl text-center">
+            <h1 class="fantasy-font text-3xl font-bold text-amber-400 mb-2 tracking-wider">L'ACADÉMIE DE MAGIE</h1>
+            <p class="text-xs text-slate-400 mb-6 uppercase tracking-widest">Château Fort & Domaine Merveilleux</p>
+
+            <div class="space-y-4 text-left">
+                <div>
+                    <label class="block text-xs font-semibold uppercase tracking-wider text-amber-200 mb-1">Nom du Sorcier / Aventurier</label>
+                    <input type="text" id="hero-name-input" value="Sorcier Poudlard" maxlength="16" class="w-full bg-slate-900/80 border border-amber-500/40 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-amber-400 text-sm">
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-semibold uppercase tracking-wider text-amber-200 mb-1">Couleur de Peau</label>
+                        <input type="color" id="skin-color-input" value="#ffdbac" class="w-full h-10 bg-slate-900 border border-amber-500/40 rounded-lg cursor-pointer">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold uppercase tracking-wider text-amber-200 mb-1">Cheveux Anime</label>
+                        <input type="color" id="hair-color-input" value="#eab308" class="w-full h-10 bg-slate-900 border border-amber-500/40 rounded-lg cursor-pointer">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold uppercase tracking-wider text-amber-200 mb-1">Robe de Sorcier</label>
+                        <input type="color" id="top-color-input" value="#1e1b4b" class="w-full h-10 bg-slate-900 border border-amber-500/40 rounded-lg cursor-pointer">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold uppercase tracking-wider text-amber-200 mb-1">Pantalon / Jupe</label>
+                        <input type="color" id="bottom-color-input" value="#0f172a" class="w-full h-10 bg-slate-900 border border-amber-500/40 rounded-lg cursor-pointer">
+                    </div>
+                </div>
+            </div>
+
+            <button id="start-game-btn" class="rpg-btn w-full mt-8 py-3 rounded-xl font-bold text-amber-950 uppercase tracking-wider text-base shadow-lg cursor-pointer">
+                Entrer dans le Château
+            </button>
+        </div>
+    </div>
+
+    <!-- HUD Overlay -->
+    <div id="hud-overlay" class="fixed inset-0 pointer-events-none z-10 flex flex-col justify-between p-6 hidden">
+        <div class="flex justify-between items-start">
+            <div class="rpg-box px-4 py-2 rounded-xl flex items-center space-x-3 pointer-events-auto">
+                <div class="w-10 h-10 rounded-full bg-amber-500/20 border border-amber-400 flex items-center justify-center text-amber-400 font-bold">
+                    <i class="fa-solid fa-hat-wizard text-lg"></i>
+                </div>
+                <div>
+                    <div id="hud-hero-name" class="font-bold text-amber-300 text-sm">Sorcier Poudlard</div>
+                    <div class="text-xs text-emerald-400 flex items-center gap-1">
+                        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                        Domaine d'Eldoria & Château Magique
+                    </div>
+                </div>
+            </div>
+
+            <div class="rpg-box p-3 rounded-xl text-xs space-y-1 text-slate-300 pointer-events-auto">
+                <div><span class="font-bold text-amber-400">WASD / ZQSD</span> : Déplacement</div>
+                <div><span class="font-bold text-amber-400">SHIFT</span> : Courir</div>
+                <div><span class="font-bold text-amber-400">ESPACE</span> : Sauter</div>
+                <div><span class="font-bold text-amber-400">V</span> : Vue (1ère / 3ème)</div>
+                <div><span class="font-bold text-amber-400">E</span> : Interagir (Portes, PNJ, Terrains)</div>
+                <div><span class="font-bold text-amber-400">B</span> : Mode Construction / Catalogue</div>
+                <div><span class="font-bold text-amber-400">R</span> : Tourner l'objet</div>
+                <div><span class="font-bold text-amber-400">Clic & Glisser</span> : Regarder autour</div>
+                <div class="pt-1 border-t border-amber-500/20">
+                    <button id="copy-link-btn" class="rpg-btn px-2 py-1 rounded w-full font-bold text-amber-950 text-xs cursor-pointer flex items-center justify-center gap-1">
+                        <i class="fa-solid fa-share-nodes"></i> Copier lien d'invitation
+                    </button>
+                    <div id="copy-status" class="text-[10px] text-amber-400 text-center mt-1 hidden">Lien copié dans le presse-papier !</div>
+                </div>
+            </div>
+        </div>
+
+        <div id="interaction-prompt" class="self-center rpg-box px-6 py-3 rounded-full text-amber-300 font-bold text-sm tracking-wide hidden animate-bounce flex items-center gap-2">
+            <span class="bg-amber-500 text-slate-950 px-2 py-0.5 rounded text-xs">E</span>
+            <span id="prompt-text">Action</span>
+        </div>
+
+        <div class="flex justify-between items-end gap-4">
+            <div class="rpg-box w-80 h-48 rounded-2xl p-3 pointer-events-auto flex flex-col justify-between">
+                <div class="text-xs font-bold text-amber-400 border-b border-amber-500/30 pb-1 mb-2 flex items-center gap-2">
+                    <i class="fa-solid fa-comments"></i> Hibou Message & Chat
+                </div>
+                <div id="chat-messages" class="flex-1 overflow-y-auto space-y-1 text-xs pr-1 text-slate-200"></div>
+                <form id="chat-form" class="mt-2 flex gap-2">
+                    <input type="text" id="chat-input" placeholder="Envoyer un sort ou message..." maxlength="100" class="flex-1 bg-slate-900 border border-amber-500/40 rounded-lg px-2 py-1 text-white text-xs focus:outline-none focus:border-amber-400">
+                    <button type="submit" class="rpg-btn px-3 py-1 rounded-lg text-amber-950 font-bold text-xs"><i class="fa-solid fa-paper-plane"></i></button>
+                </form>
+            </div>
+
+            <div class="flex flex-col items-end gap-2">
+                <div id="housing-status" class="rpg-box px-4 py-2 rounded-xl text-xs text-amber-200 pointer-events-auto">
+                    <i class="fa-solid fa-house-flag mr-2 text-amber-400"></i>
+                    <span id="housing-status-text">Terrain : Aucun</span>
+                </div>
+
+                <div id="build-mode-indicator" class="rpg-box px-4 py-2 rounded-xl text-xs font-bold text-amber-400 hidden flex items-center gap-2 pointer-events-auto">
+                    <span class="w-3 h-3 rounded-full bg-amber-400 animate-ping"></span>
+                    MODE CONSTRUCTION ACTIF (B pour quitter)
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- UI: Dialogues -->
+    <div id="dialogue-modal" class="fixed bottom-10 left-1/2 -translate-x-1/2 w-11/12 max-w-2xl rpg-box p-6 rounded-2xl z-50 hidden pointer-events-auto">
+        <div class="flex items-start gap-4">
+            <div class="w-14 h-14 rounded-2xl bg-amber-500/20 border-2 border-amber-400 flex items-center justify-center text-amber-300 text-2xl shrink-0">
+                <i class="fa-solid fa-scroll"></i>
+            </div>
+            <div class="flex-1">
+                <h3 id="npc-name" class="fantasy-font text-amber-400 font-bold text-lg mb-1">Directeur de l'Académie</h3>
+                <p id="npc-text" class="text-sm text-slate-200 leading-relaxed mb-4">Bienvenue à l'école de magie d'Eldoria !</p>
+                <button id="close-dialogue-btn" class="rpg-btn px-4 py-1.5 rounded-lg text-xs font-bold text-amber-950 float-right cursor-pointer">Continuer</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- UI: Housing Modal -->
+    <div id="land-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm hidden pointer-events-auto">
+        <div class="rpg-box w-full max-w-md p-6 rounded-2xl text-center">
+            <h2 id="land-modal-title" class="fantasy-font text-2xl font-bold text-amber-400 mb-2">Terrain</h2>
+            <p id="land-modal-desc" class="text-xs text-slate-300 mb-6">Choisissez la bâtisse à dresser sur ce terrain magique !</p>
+
+            <div class="space-y-3 mb-6 text-left">
+                <div class="house-option p-3 rounded-xl border-2 border-amber-400 bg-amber-500/10 cursor-pointer transition flex items-center gap-3" data-house="cottage">
+                    <div class="text-2xl text-amber-400"><i class="fa-solid fa-house-chimney"></i></div>
+                    <div>
+                        <div class="font-bold text-sm text-amber-200">Pavillon de Sorcier</div>
+                        <div class="text-xs text-slate-400">Petite demeure en pierre ancienne et toit de tuiles vernissées</div>
+                    </div>
+                </div>
+                <div class="house-option p-3 rounded-xl border border-amber-500/30 bg-slate-900/50 hover:border-amber-400 cursor-pointer transition flex items-center gap-3" data-house="villa">
+                    <div class="text-2xl text-amber-400"><i class="fa-solid fa-house-building"></i></div>
+                    <div>
+                        <div class="font-bold text-sm text-amber-200">Maison d'Alchimiste</div>
+                        <div class="text-xs text-slate-400">Bâtisse gothique sur 2 étages avec balcons</div>
+                    </div>
+                </div>
+                <div class="house-option p-3 rounded-xl border border-amber-500/30 bg-slate-900/50 hover:border-amber-400 cursor-pointer transition flex items-center gap-3" data-house="manor">
+                    <div class="text-2xl text-amber-400"><i class="fa-solid fa-place-of-worship"></i></div>
+                    <div>
+                        <div class="font-bold text-sm text-amber-200">Manoir de Mage Noblesse</div>
+                        <div class="text-xs text-slate-400">Grande résidence aristocratique bordée d'or</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex gap-3">
+                <button id="cancel-land-btn" class="w-1/2 py-2 rounded-xl border border-slate-600 bg-slate-800 text-slate-300 text-xs font-bold cursor-pointer">Annuler</button>
+                <button id="confirm-buy-land-btn" class="w-1/2 rpg-btn py-2 rounded-xl text-amber-950 text-xs font-bold cursor-pointer">Bâtir ici</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- UI: Decoration Catalogue Menu -->
+    <div id="build-catalog" class="fixed right-6 top-20 bottom-20 w-80 rpg-box p-4 rounded-2xl z-30 hidden pointer-events-auto flex flex-col">
+        <h3 class="fantasy-font text-amber-400 font-bold text-base mb-3 pb-2 border-b border-amber-500/30 flex items-center gap-2">
+            <i class="fa-solid fa-wand-magic-sparkles"></i> Atelier de Déco
+        </h3>
+
+        <div class="flex gap-2 mb-3">
+            <button id="tab-interior" class="flex-1 py-1.5 rounded-lg bg-amber-500 text-slate-950 font-bold text-xs cursor-pointer">Intérieur</button>
+            <button id="tab-exterior" class="flex-1 py-1.5 rounded-lg bg-slate-800 text-amber-200 border border-amber-500/30 font-bold text-xs cursor-pointer">Extérieur</button>
+        </div>
+
+        <div id="catalog-items" class="flex-1 overflow-y-auto space-y-2 pr-1"></div>
+
+        <div class="mt-3 pt-2 border-t border-amber-500/30 text-xs text-slate-400 space-y-1">
+            <p><span class="text-amber-400 font-bold">R</span> : Fait pivoter l'objet</p>
+            <p><span class="text-amber-400 font-bold">Clic Gauche</span> : Placer l'objet</p>
+            <p><span class="text-amber-400 font-bold">Clic Droit sur Objet</span> : Supprimer</p>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, getDoc, onSnapshot, collection, addDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        window.FirebaseFirestore = { doc, setDoc, getDoc, onSnapshot, collection, addDoc };
+
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'fantasy-hogwarts-3d';
+        let firebaseConfig;
+        try {
+            firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
+        } catch(e) {
+            firebaseConfig = null;
+        }
+
+        if (firebaseConfig && firebaseConfig.apiKey !== "demo") {
+            try {
+                const app = initializeApp(firebaseConfig);
+                const auth = getAuth(app);
+                const db = getFirestore(app);
+
+                onAuthStateChanged(auth, (user) => {
+                    if (user && window.MMO_NET) {
+                        window.MMO_NET.initNetwork(db, appId, user.uid);
+                    }
+                });
+
+                async function initAuth() {
+                    try {
+                        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                            await signInWithCustomToken(auth, __initial_auth_token);
+                        } else {
+                            await signInAnonymously(auth);
+                        }
+                    } catch (err) {
+                        console.warn("Firebase Auth fallback activated.");
+                        if (window.MMO_NET) {
+                            window.MMO_NET.initNetwork(null, appId, 'local_user_' + Math.random().toString(36).substr(2, 6));
+                        }
+                    }
+                }
+                initAuth();
+            } catch(e) {
+                console.warn("Running in offline/local mode.");
+                if (window.MMO_NET) {
+                    window.MMO_NET.initNetwork(null, appId, 'local_user_' + Math.random().toString(36).substr(2, 6));
+                }
+            }
+        } else {
+            if (window.MMO_NET) {
+                window.MMO_NET.initNetwork(null, appId, 'local_user_' + Math.random().toString(36).substr(2, 6));
+            }
+        }
+    </script>
+
+    <script>
+        const TextureGenerator = {
+            createGrassTexture() {
+                const canvas = document.createElement('canvas');
+                canvas.width = 512; canvas.height = 512;
+                const ctx = canvas.getContext('2d');
+                ctx.fillStyle = '#1e3a1e';
+                ctx.fillRect(0, 0, 512, 512);
+                for(let i = 0; i < 40000; i++) {
+                    const r = Math.random();
+                    ctx.fillStyle = r > 0.6 ? '#15803d' : r > 0.3 ? '#166534' : '#22c55e';
+                    ctx.fillRect(Math.random() * 512, Math.random() * 512, 2, 6);
+                }
+                const texture = new THREE.CanvasTexture(canvas);
+                texture.wrapS = THREE.RepeatWrapping; texture.wrapT = THREE.RepeatWrapping;
+                texture.repeat.set(40, 40);
+                return texture;
+            },
+
+            createGothicStoneTexture() {
+                const canvas = document.createElement('canvas');
+                canvas.width = 512; canvas.height = 512;
+                const ctx = canvas.getContext('2d');
+                ctx.fillStyle = '#1e293b';
+                ctx.fillRect(0, 0, 512, 512);
+                const bh = 32, bw = 64;
+                for(let y = 0; y < 512; y += bh) {
+                    const row = y / bh;
+                    const offset = (row % 2) * (bw / 2);
+                    for(let x = -bw; x < 512 + bw; x += bw) {
+                        const shade = Math.floor(Math.random() * 45);
+                        ctx.fillStyle = `rgb(${50 + shade}, ${60 + shade}, ${75 + shade})`;
+                        ctx.fillRect(x + offset + 2, y + 2, bw - 4, bh - 4);
+                        ctx.strokeStyle = '#0f172a';
+                        ctx.lineWidth = 2;
+                        ctx.strokeRect(x + offset + 2, y + 2, bw - 4, bh - 4);
+                    }
+                }
+                const texture = new THREE.CanvasTexture(canvas);
+                texture.wrapS = THREE.RepeatWrapping; texture.wrapT = THREE.RepeatWrapping;
+                texture.repeat.set(4, 4);
+                return texture;
+            },
+
+            createStainedGlassTexture() {
+                const canvas = document.createElement('canvas');
+                canvas.width = 256; canvas.height = 512;
+                const ctx = canvas.getContext('2d');
+                ctx.fillStyle = '#0f172a';
+                ctx.fillRect(0, 0, 256, 512);
+
+                const colors = ['#dc2626', '#2563eb', '#eab308', '#16a34a', '#9333ea'];
+                for(let y = 30; y < 480; y += 40) {
+                    for(let x = 30; x < 230; x += 40) {
+                        ctx.fillStyle = colors[Math.floor(Math.random() * colors.length)];
+                        ctx.beginPath();
+                        ctx.arc(x + 15, y + 15, 15, 0, Math.PI * 2);
+                        ctx.fill();
+                        ctx.strokeStyle = '#fef08a';
+                        ctx.lineWidth = 2;
+                        ctx.stroke();
+                    }
+                }
+                return new THREE.CanvasTexture(canvas);
+            },
+
+            createCastleParquetTexture() {
+                const canvas = document.createElement('canvas');
+                canvas.width = 256; canvas.height = 256;
+                const ctx = canvas.getContext('2d');
+                ctx.fillStyle = '#451a03';
+                ctx.fillRect(0, 0, 256, 256);
+                for(let i = 0; i < 256; i += 32) {
+                    for(let j = 0; j < 256; j += 64) {
+                        ctx.fillStyle = (i/32 + j/64) % 2 === 0 ? '#78350f' : '#572304';
+                        ctx.fillRect(i, j, 30, 60);
+                        ctx.strokeStyle = '#270e02';
+                        ctx.lineWidth = 2;
+                        ctx.strokeRect(i, j, 30, 60);
+                    }
+                }
+                const texture = new THREE.CanvasTexture(canvas);
+                texture.wrapS = THREE.RepeatWrapping; texture.wrapT = THREE.RepeatWrapping;
+                texture.repeat.set(6, 6);
+                return texture;
+            },
+
+            createRoofSlateTexture() {
+                const canvas = document.createElement('canvas');
+                canvas.width = 256; canvas.height = 256;
+                const ctx = canvas.getContext('2d');
+                ctx.fillStyle = '#1e1b4b';
+                ctx.fillRect(0, 0, 256, 256);
+                for(let y = 0; y < 256; y += 16) {
+                    for(let x = 0; x < 256; x += 24) {
+                        const v = Math.floor(Math.random() * 30);
+                        ctx.fillStyle = `rgb(${30 + v}, ${27 + v}, ${75 + v})`;
+                        ctx.beginPath();
+                        ctx.arc(x + 12, y, 12, 0, Math.PI);
+                        ctx.fill();
+                    }
+                }
+                const texture = new THREE.CanvasTexture(canvas);
+                texture.wrapS = THREE.RepeatWrapping; texture.wrapT = THREE.RepeatWrapping;
+                texture.repeat.set(6, 6);
+                return texture;
+            },
+
+            createGoldRuneTexture() {
+                const canvas = document.createElement('canvas');
+                canvas.width = 256; canvas.height = 256;
+                const ctx = canvas.getContext('2d');
+                ctx.fillStyle = '#0f172a';
+                ctx.fillRect(0, 0, 256, 256);
+                ctx.strokeStyle = '#f59e0b';
+                ctx.lineWidth = 4;
+                ctx.beginPath();
+                ctx.arc(128, 128, 100, 0, Math.PI*2);
+                ctx.arc(128, 128, 85, 0, Math.PI*2);
+                ctx.stroke();
+                ctx.font = "bold 16px serif";
+                ctx.fillStyle = "#fbbf24";
+                ctx.fillText("✧ POUDLARD ✧", 50, 133);
+                return new THREE.CanvasTexture(canvas);
+            }
+        };
+
+        window.MMO_NET = {
+            db: null, appId: null, userId: null, broadcastChannel: null,
+            initNetwork(db, appId, userId) {
+                this.db = db; this.appId = appId; this.userId = userId;
+                this.setupBroadcastChannel();
+                if (db) {
+                    this.listenToPlayers();
+                    this.listenToLands();
+                    this.listenToChat();
+                }
+            },
+            setupBroadcastChannel() {
+                if (window.BroadcastChannel) {
+                    this.broadcastChannel = new BroadcastChannel('hogwarts_mmo_realm_chan');
+                    this.broadcastChannel.onmessage = (event) => {
+                        const { type, data } = event.data;
+                        if (data.userId === this.userId) return;
+                        this.handleIncomingMessage(type, data);
+                    };
+                }
+                window.addEventListener('storage', (event) => {
+                    if (event.key === 'hogwarts_mmo_sync_event' && event.newValue) {
+                        try {
+                            const { type, data } = JSON.parse(event.newValue);
+                            if (data.userId === this.userId) return;
+                            this.handleIncomingMessage(type, data);
+                        } catch(e){}
+                    }
+                });
+            },
+            broadcast(type, data) {
+                const payload = { userId: this.userId, ...data };
+                if (this.broadcastChannel) {
+                    this.broadcastChannel.postMessage({ type, data: payload });
+                }
+                try {
+                    localStorage.setItem('hogwarts_mmo_sync_event', JSON.stringify({
+                        type, data: payload, timestamp: Date.now()
+                    }));
+                } catch(e){}
+            },
+            handleIncomingMessage(type, data) {
+                if (type === 'PLAYER_POS') {
+                    window.GameEngine.updateOtherPlayer(data.userId, data);
+                } else if (type === 'LAND_UPDATE') {
+                    window.GameEngine.syncLandData(data);
+                } else if (type === 'CHAT_MSG') {
+                    const chatContainer = document.getElementById('chat-messages');
+                    if (chatContainer) {
+                        chatContainer.innerHTML += `<div><span class="font-bold text-amber-300">${escapeHtml(data.senderName)}:</span> ${escapeHtml(data.text)}</div>`;
+                        chatContainer.scrollTop = chatContainer.scrollHeight;
+                    }
+                }
+            },
+            sendPlayerTransform(data) {
+                this.broadcast('PLAYER_POS', data);
+                if (!this.db || !this.userId || !window.FirebaseFirestore) return;
+                const { doc, setDoc } = window.FirebaseFirestore;
+                const playerDoc = doc(this.db, 'artifacts', this.appId, 'public', 'data', 'players', this.userId);
+                setDoc(playerDoc, {
+                    name: data.name, colorData: data.colorData,
+                    x: data.x, y: data.y, z: data.z, ry: data.ry,
+                    walkAnim: data.walkAnim, lastSeen: Date.now()
+                }, { merge: true }).catch(()=>{});
+            },
+            listenToPlayers() {
+                if (!this.db || !window.FirebaseFirestore) return;
+                const { collection, onSnapshot } = window.FirebaseFirestore;
+                const playersCol = collection(this.db, 'artifacts', this.appId, 'public', 'data', 'players');
+                onSnapshot(playersCol, (snapshot) => {
+                    snapshot.docChanges().forEach((change) => {
+                        const id = change.doc.id;
+                        if (id === this.userId) return;
+                        const data = change.doc.data();
+                        if (change.type === "removed") window.GameEngine.removeOtherPlayer(id);
+                        else window.GameEngine.updateOtherPlayer(id, data);
+                    });
+                }, ()=>{});
+            },
+            async buyLand(landId, houseType) {
+                const landData = {
+                    landId: landId, ownerId: this.userId || 'local_user', ownerName: window.GameEngine.localPlayer.name,
+                    houseType: houseType, items: []
+                };
+                this.broadcast('LAND_UPDATE', landData);
+                window.GameEngine.syncLandData(landData);
+
+                if (!this.db || !this.userId || !window.FirebaseFirestore) {
+                    return true;
+                }
+                const { doc, getDoc, setDoc } = window.FirebaseFirestore;
+                const landDoc = doc(this.db, 'artifacts', this.appId, 'public', 'data', 'lands', `land_${landId}`);
+                try {
+                    const snap = await getDoc(landDoc);
+                    if (snap.exists() && snap.data().ownerId && snap.data().ownerId !== this.userId) return false;
+                    await setDoc(landDoc, landData, { merge: true });
+                    return true;
+                } catch(e) { return false; }
+            },
+            async saveDecorations(landId, items) {
+                const landObj = window.GameEngine.lands.find(l => l.id === landId);
+                if (landObj) {
+                    const landData = {
+                        landId: landId, ownerId: landObj.ownerId, ownerName: landObj.ownerName,
+                        houseType: landObj.houseType, items: items
+                    };
+                    this.broadcast('LAND_UPDATE', landData);
+                }
+                if (!this.db || !this.userId || !window.FirebaseFirestore) return;
+                const { doc, setDoc } = window.FirebaseFirestore;
+                const landDoc = doc(this.db, 'artifacts', this.appId, 'public', 'data', 'lands', `land_${landId}`);
+                await setDoc(landDoc, { items: items }, { merge: true }).catch(()=>{});
+            },
+            listenToLands() {
+                if (!this.db || !window.FirebaseFirestore) return;
+                const { collection, onSnapshot } = window.FirebaseFirestore;
+                const landsCol = collection(this.db, 'artifacts', this.appId, 'public', 'data', 'lands');
+                onSnapshot(landsCol, (snapshot) => {
+                    snapshot.docs.forEach((docSnap) => {
+                        window.GameEngine.syncLandData(docSnap.data());
+                    });
+                }, ()=>{});
+            },
+            async sendChatMessage(text) {
+                if (!text.trim()) return;
+                const chatMsg = { senderName: window.GameEngine.localPlayer.name, text: text.trim(), timestamp: Date.now() };
+                this.broadcast('CHAT_MSG', chatMsg);
+                const chatContainer = document.getElementById('chat-messages');
+                if (chatContainer) {
+                    chatContainer.innerHTML += `<div><span class="font-bold text-amber-300">${escapeHtml(chatMsg.senderName)}:</span> ${escapeHtml(chatMsg.text)}</div>`;
+                    chatContainer.scrollTop = chatContainer.scrollHeight;
+                }
+                if (!this.db || !this.userId || !window.FirebaseFirestore) return;
+                const { collection, addDoc } = window.FirebaseFirestore;
+                const chatCol = collection(this.db, 'artifacts', this.appId, 'public', 'data', 'chat_messages');
+                await addDoc(chatCol, chatMsg).catch(()=>{});
+            },
+            listenToChat() {
+                if (!this.db || !window.FirebaseFirestore) return;
+                const { collection, onSnapshot } = window.FirebaseFirestore;
+                const chatCol = collection(this.db, 'artifacts', this.appId, 'public', 'data', 'chat_messages');
+                onSnapshot(chatCol, (snapshot) => {
+                    const msgs = [];
+                    snapshot.docs.forEach(docSnap => msgs.push(docSnap.data()));
+                    msgs.sort((a, b) => a.timestamp - b.timestamp);
+                    const chatContainer = document.getElementById('chat-messages');
+                    if (chatContainer) {
+                        chatContainer.innerHTML = msgs.slice(-40).map(m => `
+                            <div><span class="font-bold text-amber-300">${m.senderName}:</span> ${escapeHtml(m.text)}</div>
+                        `).join('');
+                        chatContainer.scrollTop = chatContainer.scrollHeight;
+                    }
+                }, ()=>{});
+            }
+        };
+
+        function escapeHtml(str) {
+            return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        }
+
+        function buildAnimeCharacterMesh(colorData) {
+            const charGroup = new THREE.Group();
+
+            const skinMat = new THREE.MeshStandardMaterial({ color: colorData.skinColor || "#ffdbac", roughness: 0.6 });
+            const hairMat = new THREE.MeshStandardMaterial({ color: colorData.hairColor || "#eab308", roughness: 0.4 });
+            const topMat = new THREE.MeshStandardMaterial({ color: colorData.topColor || "#1e1b4b", roughness: 0.5 });
+            const bottomMat = new THREE.MeshStandardMaterial({ color: colorData.bottomColor || "#0f172a", roughness: 0.7 });
+            const goldMat = new THREE.MeshStandardMaterial({ color: 0xf59e0b, metalness: 0.9, roughness: 0.2 });
+
+            const torso = new THREE.Mesh(new THREE.BoxGeometry(0.8, 1.1, 0.5), topMat);
+            torso.position.y = 1.1; torso.castShadow = true;
+            charGroup.add(torso);
+
+            const cape = new THREE.Mesh(new THREE.BoxGeometry(0.85, 1.3, 0.1), new THREE.MeshStandardMaterial({ color: 0x431407 }));
+            cape.position.set(0, 1.1, -0.28); cape.rotation.x = 0.1;
+            charGroup.add(cape);
+
+            const head = new THREE.Mesh(new THREE.BoxGeometry(0.65, 0.65, 0.65), skinMat);
+            head.position.y = 1.95; head.castShadow = true;
+            charGroup.add(head);
+
+            const hatCone = new THREE.Mesh(new THREE.ConeGeometry(0.5, 0.9, 12), topMat);
+            hatCone.position.set(0, 2.5, -0.05); hatCone.rotation.x = -0.15;
+            const hatBrim = new THREE.Mesh(new THREE.CylinderGeometry(0.65, 0.65, 0.05, 12), goldMat);
+            hatBrim.position.y = 2.15;
+            charGroup.add(hatCone, hatBrim);
+
+            const armLGroup = new THREE.Group();
+            armLGroup.position.set(-0.55, 1.5, 0);
+            const armL = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.1, 0.8), topMat);
+            armL.position.y = -0.4; armLGroup.add(armL);
+
+            const armRGroup = new THREE.Group();
+            armRGroup.position.set(0.55, 1.5, 0);
+            const armR = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.1, 0.8), topMat);
+            armR.position.y = -0.4;
+            const wand = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.03, 0.7), new THREE.MeshStandardMaterial({ color: 0x78350f }));
+            wand.position.set(0, -0.8, 0.3); wand.rotation.x = Math.PI / 3;
+            const wandTip = new THREE.Mesh(new THREE.SphereGeometry(0.06, 8, 8), new THREE.MeshBasicMaterial({ color: 0x38bdf8 }));
+            wandTip.position.set(0, -1.05, 0.55);
+            armRGroup.add(armR, wand, wandTip);
+
+            charGroup.add(armLGroup, armRGroup);
+
+            const legLGroup = new THREE.Group();
+            legLGroup.position.set(-0.22, 0.6, 0);
+            const legL = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.7, 0.35), bottomMat);
+            legL.position.y = -0.35; legLGroup.add(legL);
+
+            const legRGroup = new THREE.Group();
+            legRGroup.position.set(0.22, 0.6, 0);
+            const legR = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.7, 0.35), bottomMat);
+            legR.position.y = -0.35; legRGroup.add(legR);
+
+            charGroup.add(legLGroup, legRGroup);
+
+            return { mesh: charGroup, armL: armLGroup, armR: armRGroup, legL: legLGroup, legR: legRGroup };
+        }
+
+        const GameEngine = {
+            scene: null, camera: null, renderer: null,
+            textures: {}, colliders: [], doors: [],
+            floatingCandles: [],
+            localPlayer: {
+                meshData: null, name: "Sorcier", colorData: {},
+                x: 0, y: 0, z: 0, ry: 0, vy: 0, isGrounded: true,
+                ownedLandId: null, walkCycle: 0, isFirstPerson: false, pitch: 0
+            },
+            keys: {}, otherPlayersMeshes: {}, lands: [], builtLandMeshes: {},
+            interactiveObjects: [], currentInteraction: null,
+            buildMode: false, selectedBuildItem: null, catalogCategory: 'interior',
+            previewMesh: null, previewRotation: 0, raycaster: new THREE.Raycaster(),
+
+            init() {
+                this.textures.grass = TextureGenerator.createGrassTexture();
+                this.textures.stone = TextureGenerator.createGothicStoneTexture();
+                this.textures.stainedGlass = TextureGenerator.createStainedGlassTexture();
+                this.textures.parquet = TextureGenerator.createCastleParquetTexture();
+                this.textures.slate = TextureGenerator.createRoofSlateTexture();
+                this.textures.rune = TextureGenerator.createGoldRuneTexture();
+
+                this.scene = new THREE.Scene();
+                this.scene.background = new THREE.Color(0x0a0e17);
+                this.scene.fog = new THREE.FogExp2(0x1e1b4b, 0.005);
+
+                this.camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1200);
+                this.renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
+                this.renderer.setSize(window.innerWidth, window.innerHeight);
+                this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+                this.renderer.shadowMap.enabled = true;
+                this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+                const container = document.getElementById('canvas-container');
+                container.appendChild(this.renderer.domElement);
+
+                this.setupLighting();
+                this.buildWorldEnvironment();
+                this.buildGiantHogwartsCastle();
+                this.generate35Lands();
+                this.buildMagicalForest();
+
+                this.setupControls();
+                this.setupCatalogTabs();
+
+                window.addEventListener('resize', () => this.onWindowResize());
+                this.animate();
+            },
+
+            addCollider(x, z, radius) { this.colliders.push({ x, z, radius }); },
+            addBoxCollider(minX, maxX, minZ, maxZ) { this.colliders.push({ isBox: true, minX, maxX, minZ, maxZ }); },
+
+            setupLighting() {
+                const ambient = new THREE.AmbientLight(0x818cf8, 0.7);
+                this.scene.add(ambient);
+
+                const moon = new THREE.DirectionalLight(0xc7d2fe, 1.2);
+                moon.position.set(120, 220, -100);
+                moon.castShadow = true;
+                moon.shadow.mapSize.width = 1024; moon.shadow.mapSize.height = 1024;
+                moon.shadow.camera.near = 0.5; moon.shadow.camera.far = 500;
+                const d = 200;
+                moon.shadow.camera.left = -d; moon.shadow.camera.right = d;
+                moon.shadow.camera.top = d; moon.shadow.camera.bottom = -d;
+                this.scene.add(moon);
+            },
+
+            buildWorldEnvironment() {
+                const terrainGeo = new THREE.PlaneGeometry(600, 600, 32, 32);
+                terrainGeo.rotateX(-Math.PI / 2);
+                const terrainMat = new THREE.MeshStandardMaterial({ map: this.textures.grass, roughness: 0.9 });
+                const terrain = new THREE.Mesh(terrainGeo, terrainMat);
+                terrain.receiveShadow = true; terrain.userData.ignoreCamRaycast = true;
+                this.scene.add(terrain);
+
+                const courtyardGeo = new THREE.PlaneGeometry(120, 100);
+                courtyardGeo.rotateX(-Math.PI / 2);
+                const courtyardMat = new THREE.MeshStandardMaterial({ map: this.textures.stone, roughness: 0.6 });
+                const courtyard = new THREE.Mesh(courtyardGeo, courtyardMat);
+                courtyard.position.set(0, 0.05, -35);
+                courtyard.receiveShadow = true; courtyard.userData.ignoreCamRaycast = true;
+                this.scene.add(courtyard);
+            },
+
+            buildGiantHogwartsCastle() {
+                const castleGroup = new THREE.Group();
+                castleGroup.position.set(0, 0, -120);
+
+                const stoneMat = new THREE.MeshStandardMaterial({ map: this.textures.stone, roughness: 0.65 });
+                const roofMat = new THREE.MeshStandardMaterial({ map: this.textures.slate, roughness: 0.4 });
+                const glassMat = new THREE.MeshBasicMaterial({ map: this.textures.stainedGlass, transparent: true, opacity: 0.85 });
+                const parquetMat = new THREE.MeshStandardMaterial({ map: this.textures.parquet, roughness: 0.5 });
+                const goldMat = new THREE.MeshStandardMaterial({ color: 0xf59e0b, metalness: 0.9, roughness: 0.2 });
+
+                const hallDepth = 30; const hallHeight = 25; const hallWidth = 60; const doorWidth = 10;
+                const sideWallWidth = (hallWidth - doorWidth) / 2;
+
+                const backWall = new THREE.Mesh(new THREE.BoxGeometry(hallWidth, hallHeight, 0.8), stoneMat);
+                backWall.position.set(0, hallHeight/2, -hallDepth/2);
+                castleGroup.add(backWall);
+
+                const leftWall = new THREE.Mesh(new THREE.BoxGeometry(0.8, hallHeight, hallDepth), stoneMat);
+                leftWall.position.set(-hallWidth/2, hallHeight/2, 0);
+                const rightWall = new THREE.Mesh(new THREE.BoxGeometry(0.8, hallHeight, hallDepth), stoneMat);
+                rightWall.position.set(hallWidth/2, hallHeight/2, 0);
+                castleGroup.add(leftWall, rightWall);
+
+                const frontLeft = new THREE.Mesh(new THREE.BoxGeometry(sideWallWidth, hallHeight, 0.8), stoneMat);
+                frontLeft.position.set(-hallWidth/2 + sideWallWidth/2, hallHeight/2, hallDepth/2);
+                
+                const frontRight = new THREE.Mesh(new THREE.BoxGeometry(sideWallWidth, hallHeight, 0.8), stoneMat);
+                frontRight.position.set(hallWidth/2 - sideWallWidth/2, hallHeight/2, hallDepth/2);
+
+                const topArch = new THREE.Mesh(new THREE.BoxGeometry(doorWidth, hallHeight - 12, 0.8), stoneMat);
+                topArch.position.set(0, hallHeight - (hallHeight - 12)/2, hallDepth/2);
+
+                castleGroup.add(frontLeft, frontRight, topArch);
+
+                const hallFloor = new THREE.Mesh(new THREE.PlaneGeometry(58, 28), parquetMat);
+                hallFloor.rotateX(-Math.PI/2); hallFloor.position.set(0, 0.1, 0);
+                castleGroup.add(hallFloor);
+
+                for(let x = -22; x <= 22; x += 11) {
+                    if (Math.abs(x) < 6) continue;
+                    const glass = new THREE.Mesh(new THREE.PlaneGeometry(5, 14), glassMat);
+                    glass.position.set(x, 14, 15.1);
+                    castleGroup.add(glass);
+                }
+
+                const woodTableMat = new THREE.MeshStandardMaterial({ color: 0x572304, roughness: 0.6 });
+                for(let row = -20; row <= 20; row += 20) {
+                    const table = new THREE.Mesh(new THREE.BoxGeometry(3, 1.2, 18), woodTableMat);
+                    table.position.set(row, 0.6, 0);
+                    castleGroup.add(table);
+
+                    for(let z = -7; z <= 7; z += 3.5) {
+                        const goblet = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.08, 0.35), goldMat);
+                        goblet.position.set(row, 1.4, z);
+                        castleGroup.add(goblet);
+                    }
+                }
+
+                for(let i=0; i<30; i++) {
+                    const candleGroup = new THREE.Group();
+                    const candle = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.6), new THREE.MeshBasicMaterial({ color: 0xffffff }));
+                    const flame = new THREE.Mesh(new THREE.SphereGeometry(0.12, 8, 8), new THREE.MeshBasicMaterial({ color: 0xfcb316 }));
+                    flame.position.y = 0.35; candleGroup.add(candle, flame);
+                    
+                    const cx = (Math.random()-0.5)*50;
+                    const cy = 16 + Math.random()*5;
+                    const cz = (Math.random()-0.5)*22;
+                    candleGroup.position.set(cx, cy, cz);
+                    castleGroup.add(candleGroup);
+                    this.floatingCandles.push(candleGroup);
+                }
+
+                const hallRoof = new THREE.Mesh(new THREE.ConeGeometry(40, 16, 4), roofMat);
+                hallRoof.position.set(0, 33, 0); hallRoof.rotation.y = Math.PI/4;
+                castleGroup.add(hallRoof);
+
+                const keepRadius = 14, keepHeight = 65;
+                const keep = new THREE.Mesh(new THREE.CylinderGeometry(keepRadius, keepRadius + 2, keepHeight, 24), stoneMat);
+                keep.position.set(0, keepHeight/2, -45); keep.castShadow = true;
+                castleGroup.add(keep);
+
+                const keepRoof = new THREE.Mesh(new THREE.ConeGeometry(keepRadius + 2, 22, 24), roofMat);
+                keepRoof.position.set(0, keepHeight + 11, -45); castleGroup.add(keepRoof);
+
+                for(let floor = 1; floor <= 3; floor++) {
+                    const floorHeight = floor * 16;
+                    const floorMesh = new THREE.Mesh(new THREE.CylinderGeometry(keepRadius - 1, keepRadius - 1, 0.8, 16), stoneMat);
+                    floorMesh.position.set(0, floorHeight, -45);
+                    castleGroup.add(floorMesh);
+                }
+
+                const towerPositions = [[-34, 18], [34, 18], [-34, -30], [34, -30]];
+                towerPositions.forEach(([tx, tz]) => {
+                    const tTower = new THREE.Mesh(new THREE.CylinderGeometry(6, 6.5, 50, 16), stoneMat);
+                    tTower.position.set(tx, 25, tz); tTower.castShadow = true;
+                    const tRoof = new THREE.Mesh(new THREE.ConeGeometry(7.5, 16, 16), roofMat);
+                    tRoof.position.set(tx, 58, tz);
+                    castleGroup.add(tTower, tRoof);
+                    this.addCollider(tx, -120 + tz, 6.5);
+                });
+
+                const mainDoorMat = new THREE.MeshStandardMaterial({ color: 0x3f1d0b, roughness: 0.5 });
+                const mainDoor = new THREE.Mesh(new THREE.BoxGeometry(8, 11.5, 0.4), mainDoorMat);
+                mainDoor.position.set(0, 6, 15);
+                castleGroup.add(mainDoor);
+
+                this.doors.push({
+                    mesh: mainDoor, position: new THREE.Vector3(0, 6, -105),
+                    initialRy: 0, isOpen: false
+                });
+
+                this.scene.add(castleGroup);
+
+                const cz = -120;
+                this.addBoxCollider(-30, 30, cz - 15, cz - 14);
+                this.addBoxCollider(-30, -29, cz - 15, cz + 15);
+                this.addBoxCollider(29, 30, cz - 15, cz + 15);
+                this.addBoxCollider(-30, -5, cz + 14, cz + 15);
+                this.addBoxCollider(5, 30, cz + 14, cz + 15);
+                this.addCollider(0, -165, keepRadius + 1);
+
+                this.createNPC("Professeur Albus", 0, 0, -25, "Bienvenue à Poudlard d'Eldoria ! Explorez la Grande Salle ou choisissez un terrain magique !");
+            },
+
+            generate35Lands() {
+                const landSize = 16;
+                const totalLands = 35;
+                let count = 0;
+                const radii = [50, 80, 110];
+                
+                for (let r = 0; r < radii.length && count < totalLands; r++) {
+                    const radius = radii[r];
+                    const numInRing = Math.floor((2 * Math.PI * radius) / (landSize + 9));
+                    
+                    for (let i = 0; i < numInRing && count < totalLands; i++) {
+                        count++;
+                        const angle = (i / numInRing) * Math.PI * 2;
+                        const x = Math.cos(angle) * radius;
+                        const z = Math.sin(angle) * radius;
+
+                        const landGroup = new THREE.Group();
+                        landGroup.position.set(x, 0, z);
+
+                        const border = new THREE.Mesh(
+                            new THREE.BoxGeometry(landSize, 0.15, landSize),
+                            new THREE.MeshStandardMaterial({ map: this.textures.rune, roughness: 0.3 })
+                        );
+                        border.position.y = 0.075; border.userData.ignoreCamRaycast = true;
+                        landGroup.add(border);
+
+                        const signPost = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.15, 2.5), new THREE.MeshStandardMaterial({ color: 0x451a03 }));
+                        signPost.position.set(0, 1.25, landSize/2 + 0.5);
+                        const board = new THREE.Mesh(new THREE.BoxGeometry(2.2, 1.4, 0.2), new THREE.MeshStandardMaterial({ color: 0x78350f }));
+                        board.position.set(0, 2.1, landSize/2 + 0.5);
+
+                        landGroup.add(signPost, board);
+                        this.scene.add(landGroup);
+
+                        this.lands.push({
+                            id: count, x: x, z: z, size: landSize,
+                            ownerId: null, ownerName: null, houseType: null, group: landGroup
+                        });
+
+                        this.interactiveObjects.push({
+                            type: 'land', landId: count,
+                            position: new THREE.Vector3(x, 0, z + landSize/2 + 1), radius: 3.5
+                        });
+                    }
+                }
+            },
+
+            buildMagicalForest() {
+                const innerRadius = 150, outerRadius = 220;
+                const treeMat = new THREE.MeshStandardMaterial({ color: 0x064e3b, roughness: 0.8 });
+                const trunkMat = new THREE.MeshStandardMaterial({ color: 0x270e02, roughness: 0.9 });
+
+                for (let i = 0; i < 300; i++) {
+                    const angle = Math.random() * Math.PI * 2;
+                    const dist = innerRadius + Math.random() * (outerRadius - innerRadius);
+                    const x = Math.cos(angle) * dist;
+                    const z = Math.sin(angle) * dist;
+
+                    const treeGroup = new THREE.Group();
+                    const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.7, 1.1, 4.5), trunkMat);
+                    trunk.position.y = 2.25; treeGroup.add(trunk);
+
+                    const scale = 1.0 + Math.random() * 0.8;
+                    const leaves = new THREE.Mesh(new THREE.ConeGeometry(4.2, 11, 7), treeMat);
+                    leaves.position.y = 8; leaves.scale.set(scale, scale, scale); leaves.castShadow = true;
+                    treeGroup.add(leaves);
+
+                    treeGroup.position.set(x, 0, z);
+                    this.scene.add(treeGroup);
+                    this.addCollider(x, z, 1.5);
+                }
+            },
+
+            createNPC(name, x, y, z, text) {
+                const npcData = buildAnimeCharacterMesh({
+                    skinColor: '#ffdbac', hairColor: '#eab308', topColor: '#312e81', bottomColor: '#0f172a'
+                });
+                npcData.mesh.position.set(x, y, z);
+                this.scene.add(npcData.mesh);
+                this.addCollider(x, z, 1.2);
+
+                this.interactiveObjects.push({
+                    type: 'npc', name: name, text: text,
+                    position: new THREE.Vector3(x, y, z), radius: 4.0
+                });
+            },
+
+            createLocalPlayer(heroData) {
+                this.localPlayer.name = heroData.name;
+                this.localPlayer.colorData = heroData;
+
+                const playerMeshObj = buildAnimeCharacterMesh(heroData);
+                playerMeshObj.mesh.position.set(0, 0.1, 10);
+                playerMeshObj.mesh.userData.isPlayer = true;
+                this.scene.add(playerMeshObj.mesh);
+                this.localPlayer.meshData = playerMeshObj;
+
+                document.getElementById('hud-hero-name').innerText = heroData.name;
+            },
+
+            updateOtherPlayer(id, data) {
+                let pData = this.otherPlayersMeshes[id];
+                if (!pData) {
+                    pData = buildAnimeCharacterMesh(data.colorData || {
+                        skinColor: '#ffdbac', hairColor: '#3b82f6', topColor: '#dc2626', bottomColor: '#1e293b'
+                    });
+                    this.scene.add(pData.mesh);
+                    this.otherPlayersMeshes[id] = pData;
+                }
+
+                pData.mesh.position.set(data.x, data.y, data.z);
+                pData.mesh.rotation.y = data.ry || 0;
+            },
+
+            removeOtherPlayer(id) {
+                if (this.otherPlayersMeshes[id]) {
+                    this.scene.remove(this.otherPlayersMeshes[id].mesh);
+                    delete this.otherPlayersMeshes[id];
+                }
+            },
+
+            setupControls() {
+                window.addEventListener('keydown', (e) => {
+                    if (document.activeElement === document.getElementById('chat-input')) {
+                        if (e.code === 'Enter') document.getElementById('chat-form').requestSubmit();
+                        return;
+                    }
+                    this.keys[e.code] = true;
+                    if (e.code === 'KeyE') this.triggerInteraction();
+                    if (e.code === 'KeyB') this.toggleBuildMode();
+                    if (e.code === 'KeyV') {
+                        this.localPlayer.isFirstPerson = !this.localPlayer.isFirstPerson;
+                        if (this.localPlayer.meshData) this.localPlayer.meshData.mesh.visible = !this.localPlayer.isFirstPerson;
+                    }
+                    if (e.code === 'KeyR' && this.buildMode) this.previewRotation += Math.PI / 4;
+                    if (e.code === 'Delete' && this.buildMode) this.removeHoveredDecoration();
+                });
+
+                window.addEventListener('keyup', (e) => { this.keys[e.code] = false; });
+
+                const canvas = this.renderer.domElement;
+                canvas.addEventListener('contextmenu', (e) => {
+                    e.preventDefault();
+                    if (this.buildMode) this.removeHoveredDecoration();
+                });
+
+                let isMouseDown = false;
+                canvas.addEventListener('mousedown', () => {
+                    isMouseDown = true;
+                    const landModal = document.getElementById('land-modal');
+                    const dialogueModal = document.getElementById('dialogue-modal');
+                    if ((landModal && !landModal.classList.contains('hidden')) || (dialogueModal && !dialogueModal.classList.contains('hidden'))) return;
+
+                    if (this.buildMode && this.selectedBuildItem) {
+                        this.placeDecorationItem();
+                    }
+                });
+
+                window.addEventListener('mouseup', () => { isMouseDown = false; });
+
+                document.addEventListener('mousemove', (e) => {
+                    const isLocked = document.pointerLockElement === canvas;
+                    if (isLocked || isMouseDown) {
+                        if (this.localPlayer.meshData) {
+                            this.localPlayer.meshData.mesh.rotation.y -= e.movementX * 0.0025;
+                        }
+                        this.localPlayer.pitch -= e.movementY * 0.0025;
+                        this.localPlayer.pitch = Math.max(-1.3, Math.min(1.3, this.localPlayer.pitch));
+                    }
+                });
+            },
+
+            setupCatalogTabs() {
+                const tabInt = document.getElementById('tab-interior');
+                const tabExt = document.getElementById('tab-exterior');
+
+                tabInt.addEventListener('click', () => {
+                    this.catalogCategory = 'interior';
+                    tabInt.className = "flex-1 py-1.5 rounded-lg bg-amber-500 text-slate-950 font-bold text-xs cursor-pointer";
+                    tabExt.className = "flex-1 py-1.5 rounded-lg bg-slate-800 text-amber-200 border border-amber-500/30 font-bold text-xs cursor-pointer";
+                    this.populateCatalog();
+                });
+
+                tabExt.addEventListener('click', () => {
+                    this.catalogCategory = 'exterior';
+                    tabExt.className = "flex-1 py-1.5 rounded-lg bg-amber-500 text-slate-950 font-bold text-xs cursor-pointer";
+                    tabInt.className = "flex-1 py-1.5 rounded-lg bg-slate-800 text-amber-200 border border-amber-500/30 font-bold text-xs cursor-pointer";
+                    this.populateCatalog();
+                });
+            },
+
+            checkCollision(newX, newZ) {
+                for (let c of this.colliders) {
+                    if (c.isBox) {
+                        if (newX > c.minX - 0.6 && newX < c.maxX + 0.6 && newZ > c.minZ - 0.6 && newZ < c.maxZ + 0.6) return true;
+                    } else {
+                        const dist = Math.hypot(newX - c.x, newZ - c.z);
+                        if (dist < c.radius + 0.5) return true;
+                    }
+                }
+                return false;
+            },
+
+            updatePlayerPhysics(delta) {
+                if (!this.localPlayer.meshData) return;
+
+                const pData = this.localPlayer.meshData;
+                const p = pData.mesh.position;
+                const rotY = pData.mesh.rotation.y;
+                
+                const isSprinting = !!(this.keys['ShiftLeft'] || this.keys['ShiftRight']);
+                const baseSpeed = isSprinting ? 20.0 : 11.5;
+
+                let moveX = 0, moveZ = 0;
+                if (this.keys['KeyW'] || this.keys['ArrowUp']) moveZ -= 1;
+                if (this.keys['KeyS'] || this.keys['ArrowDown']) moveZ += 1;
+                if (this.keys['KeyA'] || this.keys['ArrowLeft']) moveX -= 1;
+                if (this.keys['KeyD'] || this.keys['ArrowRight']) moveX += 1;
+
+                const isMoving = (moveX !== 0 || moveZ !== 0);
+
+                if (isMoving) {
+                    const len = Math.hypot(moveX, moveZ);
+                    moveX /= len; moveZ /= len;
+
+                    const dx = (moveX * Math.cos(rotY) + moveZ * Math.sin(rotY)) * baseSpeed * delta;
+                    const dz = (-moveX * Math.sin(rotY) + moveZ * Math.cos(rotY)) * baseSpeed * delta;
+
+                    const nextX = p.x + dx;
+                    const nextZ = p.z + dz;
+
+                    if (Math.hypot(nextX, nextZ) < 185) {
+                        if (!this.checkCollision(nextX, p.z)) p.x = nextX;
+                        if (!this.checkCollision(p.x, nextZ)) p.z = nextZ;
+                    }
+
+                    this.localPlayer.walkCycle += delta * (isSprinting ? 18 : 12);
+                    const cycle = this.localPlayer.walkCycle;
+                    pData.armL.rotation.x = Math.sin(cycle) * 0.7;
+                    pData.armR.rotation.x = -Math.sin(cycle) * 0.7;
+                    pData.legL.rotation.x = -Math.sin(cycle) * 0.7;
+                    pData.legR.rotation.x = Math.sin(cycle) * 0.7;
+                }
+
+                if (this.keys['Space'] && this.localPlayer.isGrounded) {
+                    this.localPlayer.vy = 12.0;
+                    this.localPlayer.isGrounded = false;
+                }
+
+                this.localPlayer.vy -= 28.0 * delta;
+                p.y += this.localPlayer.vy * delta;
+
+                if (p.y <= 0) {
+                    p.y = 0; this.localPlayer.vy = 0; this.localPlayer.isGrounded = true;
+                }
+
+                const pitch = this.localPlayer.pitch;
+
+                if (this.localPlayer.isFirstPerson) {
+                    const headPos = p.clone().add(new THREE.Vector3(0, 1.95, 0));
+                    this.camera.position.copy(headPos);
+                    const lookDir = new THREE.Vector3(
+                        -Math.sin(rotY) * Math.cos(pitch), Math.sin(pitch), -Math.cos(rotY) * Math.cos(pitch)
+                    );
+                    this.camera.lookAt(headPos.clone().add(lookDir));
+                } else {
+                    const camDistance = 8.0;
+                    const camDir = new THREE.Vector3(
+                        Math.sin(rotY) * Math.cos(pitch), -Math.sin(pitch), Math.cos(rotY) * Math.cos(pitch)
+                    ).normalize();
+
+                    const lookTarget = p.clone().add(new THREE.Vector3(0, 1.8, 0));
+                    const targetCamPos = lookTarget.clone().add(camDir.multiplyScalar(camDistance));
+
+                    this.camera.position.lerp(targetCamPos, 0.25);
+                    this.camera.lookAt(lookTarget);
+                }
+
+                window.MMO_NET.sendPlayerTransform({
+                    name: this.localPlayer.name, colorData: this.localPlayer.colorData,
+                    x: p.x, y: p.y, z: p.z, ry: rotY, walkAnim: isMoving
+                });
+
+                this.checkInteractions();
+                this.updateDoorsAndGates();
+            },
+
+            updateDoorsAndGates() {
+                if (!this.localPlayer.meshData) return;
+                const p = this.localPlayer.meshData.mesh.position;
+                for (let d of this.doors) {
+                    const dist = p.distanceTo(d.position);
+                    const targetAngle = dist < 12 ? Math.PI / 2 : 0;
+                    d.mesh.rotation.y = THREE.MathUtils.lerp(d.mesh.rotation.y, targetAngle, 0.1);
+                }
+            },
+
+            syncLandData(landData) {
+                const landObj = this.lands.find(l => l.id === landData.landId);
+                if (!landObj) return;
+
+                landObj.ownerId = landData.ownerId; landObj.ownerName = landData.ownerName;
+
+                if (landData.ownerId === 'local_user' || landData.ownerId === MMO_NET.userId) {
+                    this.localPlayer.ownedLandId = landData.landId;
+                    document.getElementById('housing-status-text').innerText = `Propriétaire du Terrain #${landData.landId}`;
+                }
+
+                if (landData.houseType && !this.builtLandMeshes[landData.landId]) {
+                    this.constructHouseMeshOnLand(landObj, landData.houseType);
+                }
+
+                if (landData.items && this.builtLandMeshes[landData.landId]) {
+                    this.syncDecorationsOnLand(landObj, landData.items);
+                }
+            },
+
+            constructHouseMeshOnLand(landObj, houseType) {
+                const houseGroup = new THREE.Group();
+                houseGroup.position.set(landObj.x, 0, landObj.z);
+
+                const stoneMat = new THREE.MeshStandardMaterial({ map: this.textures.stone, roughness: 0.6 });
+                const woodMat = new THREE.MeshStandardMaterial({ map: this.textures.parquet, roughness: 0.7 });
+                const roofMat = new THREE.MeshStandardMaterial({ map: this.textures.slate, roughness: 0.45 });
+
+                let w = 8, h = 5, d = 8;
+                if (houseType === 'villa') { w = 10; h = 6.5; d = 9; }
+                if (houseType === 'manor') { w = 12; h = 8; d = 11; }
+
+                const wallThick = 0.4; const doorWidth = 2.4;
+
+                const backWall = new THREE.Mesh(new THREE.BoxGeometry(w, h, wallThick), stoneMat);
+                backWall.position.set(0, h/2, -d/2); houseGroup.add(backWall);
+
+                const leftWall = new THREE.Mesh(new THREE.BoxGeometry(wallThick, h, d), stoneMat);
+                leftWall.position.set(-w/2, h/2, 0);
+                const rightWall = new THREE.Mesh(new THREE.BoxGeometry(wallThick, h, d), stoneMat);
+                rightWall.position.set(w/2, h/2, 0); houseGroup.add(leftWall, rightWall);
+
+                const sideFrontW = (w - doorWidth) / 2;
+                const frontLeft = new THREE.Mesh(new THREE.BoxGeometry(sideFrontW, h, wallThick), stoneMat);
+                frontLeft.position.set(-w/2 + sideFrontW/2, h/2, d/2);
+                const frontRight = new THREE.Mesh(new THREE.BoxGeometry(sideFrontW, h, wallThick), stoneMat);
+                frontRight.position.set(w/2 - sideFrontW/2, h/2, d/2);
+                const doorTop = new THREE.Mesh(new THREE.BoxGeometry(doorWidth, h - 3.2, wallThick), stoneMat);
+                doorTop.position.set(0, h - (h - 3.2)/2, d/2);
+                houseGroup.add(frontLeft, frontRight, doorTop);
+
+                const roof = new THREE.Mesh(new THREE.ConeGeometry(Math.hypot(w, d) * 0.65, 4.5, 4), roofMat);
+                roof.position.y = h + 2.25; roof.rotation.y = Math.PI/4; houseGroup.add(roof);
+
+                const floor = new THREE.Mesh(new THREE.PlaneGeometry(w - 0.2, d - 0.2), woodMat);
+                floor.rotateX(-Math.PI/2); floor.position.y = 0.05; houseGroup.add(floor);
+
+                this.scene.add(houseGroup);
+                this.builtLandMeshes[landObj.id] = houseGroup;
+            },
+
+            syncDecorationsOnLand(landObj, items) {
+                const parent = this.builtLandMeshes[landObj.id];
+                if (!parent) return;
+
+                for(let i = parent.children.length - 1; i >= 0; i--) {
+                    if (parent.children[i].userData.isDeco) parent.remove(parent.children[i]);
+                }
+
+                items.forEach(item => {
+                    const decoMesh = this.createDecoMesh(item.type);
+                    decoMesh.position.set(item.x, item.y, item.z);
+                    decoMesh.rotation.y = item.ry;
+                    decoMesh.userData.isDeco = true;
+                    decoMesh.userData.itemId = item.id;
+                    parent.add(decoMesh);
+                });
+            },
+
+            createDecoMesh(type) {
+                const group = new THREE.Group();
+                const woodMat = new THREE.MeshStandardMaterial({ map: this.textures.parquet, roughness: 0.7 });
+
+                if (type === 'bed') {
+                    const frame = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.5, 3.2), woodMat);
+                    const sheet = new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.3, 2.8), new THREE.MeshStandardMaterial({ color: 0x991b1b }));
+                    sheet.position.y = 0.3;
+                    group.add(frame, sheet);
+                } else if (type === 'table') {
+                    const top = new THREE.Mesh(new THREE.BoxGeometry(2.5, 0.2, 2.5), woodMat); top.position.y = 1.2;
+                    const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 1.2), woodMat); leg.position.y = 0.6;
+                    group.add(top, leg);
+                } else if (type === 'cauldron') {
+                    const cauldron = new THREE.Mesh(new THREE.SphereGeometry(0.8, 12, 12), new THREE.MeshStandardMaterial({ color: 0x111827, metalness: 0.8 }));
+                    cauldron.position.y = 0.7;
+                    group.add(cauldron);
+                } else {
+                    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 3), woodMat); pole.position.y = 1.5;
+                    group.add(pole);
+                }
+                return group;
+            },
+
+            toggleBuildMode() {
+                if (!this.localPlayer.ownedLandId) return;
+                this.buildMode = !this.buildMode;
+                document.getElementById('build-catalog').classList.toggle('hidden', !this.buildMode);
+                document.getElementById('build-mode-indicator').classList.toggle('hidden', !this.buildMode);
+                document.getElementById('crosshair').classList.toggle('hidden', !this.buildMode);
+
+                if (this.buildMode) {
+                    document.exitPointerLock(); this.populateCatalog();
+                } else if (this.previewMesh) {
+                    this.scene.remove(this.previewMesh); this.previewMesh = null; this.selectedBuildItem = null;
+                }
+            },
+
+            populateCatalog() {
+                const container = document.getElementById('catalog-items');
+                container.innerHTML = `
+                    <div class="deco-item p-2 bg-slate-900/60 rounded-xl border border-amber-500/30 hover:border-amber-400 cursor-pointer flex items-center justify-between" data-type="bed">
+                        <span class="text-xs text-amber-200 font-bold">Lit Sabbat de Sorcier</span>
+                        <i class="fa-solid fa-bed text-amber-400"></i>
+                    </div>
+                    <div class="deco-item p-2 bg-slate-900/60 rounded-xl border border-amber-500/30 hover:border-amber-400 cursor-pointer flex items-center justify-between" data-type="cauldron">
+                        <span class="text-xs text-amber-200 font-bold">Chaudron à Potion</span>
+                        <i class="fa-solid fa-flask text-amber-400"></i>
+                    </div>
+                    <div class="deco-item p-2 bg-slate-900/60 rounded-xl border border-amber-500/30 hover:border-amber-400 cursor-pointer flex items-center justify-between" data-type="table">
+                        <span class="text-xs text-amber-200 font-bold">Table de Grimoire</span>
+                        <i class="fa-solid fa-table text-amber-400"></i>
+                    </div>
+                `;
+
+                document.querySelectorAll('.deco-item').forEach(el => {
+                    el.addEventListener('click', () => this.selectBuildItem(el.getAttribute('data-type')));
+                });
+            },
+
+            selectBuildItem(type) {
+                this.selectedBuildItem = type;
+                if (this.previewMesh) this.scene.remove(this.previewMesh);
+
+                this.previewMesh = this.createDecoMesh(type);
+                this.scene.add(this.previewMesh);
+
+                document.getElementById('build-catalog').classList.add('hidden');
+                document.getElementById('crosshair').classList.remove('hidden');
+                this.renderer.domElement.requestPointerLock();
+            },
+
+            updateBuildPreview() {
+                if (!this.buildMode || !this.previewMesh) return;
+                const p = this.localPlayer.meshData.mesh.position;
+                const rotY = this.localPlayer.meshData.mesh.rotation.y;
+                this.previewMesh.position.set(p.x - Math.sin(rotY) * 3.5, 0, p.z - Math.cos(rotY) * 3.5);
+                this.previewMesh.rotation.y = this.previewRotation;
+            },
+
+            placeDecorationItem() {
+                if (!this.buildMode || !this.selectedBuildItem || !this.localPlayer.ownedLandId) return;
+
+                const land = this.lands.find(l => l.id === this.localPlayer.ownedLandId);
+                if (!land) return;
+
+                const landMeshGroup = this.builtLandMeshes[land.id];
+                if (!landMeshGroup) return;
+
+                const relativePos = this.previewMesh.position.clone().sub(landMeshGroup.position);
+
+                const newItem = {
+                    id: 'item_' + Date.now(),
+                    type: this.selectedBuildItem,
+                    x: relativePos.x, y: relativePos.y, z: relativePos.z,
+                    ry: this.previewRotation
+                };
+
+                if (!land.items) land.items = [];
+                land.items.push(newItem);
+
+                this.syncDecorationsOnLand(land, land.items);
+                window.MMO_NET.saveDecorations(land.id, land.items);
+            },
+
+            removeHoveredDecoration() {
+                if (!this.buildMode || !this.localPlayer.ownedLandId) return;
+                const land = this.lands.find(l => l.id === this.localPlayer.ownedLandId);
+                if (!land || !land.items || land.items.length === 0) return;
+                land.items.pop();
+                this.syncDecorationsOnLand(land, land.items);
+                window.MMO_NET.saveDecorations(land.id, land.items);
+            },
+
+            checkInteractions() {
+                if (!this.localPlayer.meshData) return;
+
+                const p = this.localPlayer.meshData.mesh.position;
+                let found = null;
+
+                for (let obj of this.interactiveObjects) {
+                    if (p.distanceTo(obj.position) < obj.radius) {
+                        found = obj; break;
+                    }
+                }
+
+                this.currentInteraction = found;
+                const prompt = document.getElementById('interaction-prompt');
+                const promptText = document.getElementById('prompt-text');
+
+                if (found) {
+                    prompt.classList.remove('hidden');
+                    if (found.type === 'land') {
+                        const land = this.lands.find(l => l.id === found.landId);
+                        promptText.innerText = land.ownerName ? `Terrain #${found.landId} (${land.ownerName})` : `Acquérir le Terrain Magique #${found.landId}`;
+                    } else if (found.type === 'npc') {
+                        promptText.innerText = `Parler à ${found.name}`;
+                    }
+                } else {
+                    prompt.classList.add('hidden');
+                }
+            },
+
+            triggerInteraction() {
+                if (!this.currentInteraction) return;
+
+                if (this.currentInteraction.type === 'npc') {
+                    document.getElementById('npc-name').innerText = this.currentInteraction.name;
+                    document.getElementById('npc-text').innerText = this.currentInteraction.text;
+                    document.getElementById('dialogue-modal').classList.remove('hidden');
+                    if (document.pointerLockElement) document.exitPointerLock();
+                } else if (this.currentInteraction.type === 'land') {
+                    const land = this.lands.find(l => l.id === this.currentInteraction.landId);
+                    if (!land.ownerId) {
+                        window.selectedLandForBuy = land.id;
+                        document.getElementById('land-modal-title').innerText = `Acquérir le Terrain #${land.id}`;
+                        document.getElementById('land-modal').classList.remove('hidden');
+                        if (document.pointerLockElement) document.exitPointerLock();
+                    }
+                }
+            },
+
+            onWindowResize() {
+                this.camera.aspect = window.innerWidth / window.innerHeight;
+                this.camera.updateProjectionMatrix();
+                this.renderer.setSize(window.innerWidth, window.innerHeight);
+            },
+
+            animate() {
+                requestAnimationFrame(() => this.animate());
+
+                const delta = 0.016;
+                this.updatePlayerPhysics(delta);
+                this.updateBuildPreview();
+
+                this.renderer.render(this.scene, this.camera);
+            }
+        };
+
+        window.GameEngine = GameEngine;
+
+        window.addEventListener('load', () => {
+            document.getElementById('start-game-btn').addEventListener('click', () => {
+                const heroData = {
+                    name: document.getElementById('hero-name-input').value || "Sorcier",
+                    skinColor: document.getElementById('skin-color-input').value,
+                    hairColor: document.getElementById('hair-color-input').value,
+                    topColor: document.getElementById('top-color-input').value,
+                    bottomColor: document.getElementById('bottom-color-input').value,
+                };
+
+                document.getElementById('character-creation-modal').classList.add('hidden');
+                document.getElementById('hud-overlay').classList.remove('hidden');
+
+                GameEngine.init();
+                GameEngine.createLocalPlayer(heroData);
+            });
+
+            document.getElementById('copy-link-btn').addEventListener('click', () => {
+                const dummy = document.createElement('input');
+                document.body.appendChild(dummy);
+                dummy.value = window.location.href;
+                dummy.select();
+                document.execCommand('copy');
+                document.body.removeChild(dummy);
+                const status = document.getElementById('copy-status');
+                status.classList.remove('hidden');
+                setTimeout(() => status.classList.add('hidden'), 3000);
+            });
+
+            document.getElementById('close-dialogue-btn').addEventListener('click', () => {
+                document.getElementById('dialogue-modal').classList.add('hidden');
+                rendererCanvasRequestLock();
+            });
+
+            document.getElementById('cancel-land-btn').addEventListener('click', () => {
+                document.getElementById('land-modal').classList.add('hidden');
+                rendererCanvasRequestLock();
+            });
+
+            let selectedHouseType = 'cottage';
+            document.querySelectorAll('.house-option').forEach(el => {
+                el.addEventListener('click', () => {
+                    document.querySelectorAll('.house-option').forEach(opt => {
+                        opt.className = "house-option p-3 rounded-xl border border-amber-500/30 bg-slate-900/50 hover:border-amber-400 cursor-pointer transition flex items-center gap-3";
+                    });
+                    el.className = "house-option p-3 rounded-xl border-2 border-amber-400 bg-amber-500/10 cursor-pointer transition flex items-center gap-3";
+                    selectedHouseType = el.getAttribute('data-house');
+                });
+            });
+
+            document.getElementById('confirm-buy-land-btn').addEventListener('click', async () => {
+                if (window.selectedLandForBuy) {
+                    await MMO_NET.buyLand(window.selectedLandForBuy, selectedHouseType);
+                    document.getElementById('land-modal').classList.add('hidden');
+                    rendererCanvasRequestLock();
+                }
+            });
+
+            document.getElementById('chat-form').addEventListener('submit', (e) => {
+                e.preventDefault();
+                const input = document.getElementById('chat-input');
+                if (input.value.trim()) {
+                    MMO_NET.sendChatMessage(input.value);
+                    input.value = '';
+                }
+            });
+
+            function rendererCanvasRequestLock() {
+                const canvas = document.querySelector('canvas');
+                if (canvas && document.getElementById('character-creation-modal').classList.contains('hidden') &&
+                    document.getElementById('land-modal').classList.contains('hidden') &&
+                    document.getElementById('dialogue-modal').classList.contains('hidden') &&
+                    !GameEngine.buildMode) {
+                    canvas.requestPointerLock();
+                }
+            }
+        });
+    </script>
+</body>
+</html>
