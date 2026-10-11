@@ -3,421 +3,678 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MMORPG Fantasy - Le Château de Poudlard</title>
-    <style>
-        body { margin: 0; overflow: hidden; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; user-select: none; background: #000; }
-        #canvas-container { width: 100vw; height: 100vh; }
-        
-        /* UI Elements */
-        #hud { position: absolute; top: 20px; left: 20px; color: #fff; text-shadow: 2px 2px 4px #000; pointer-events: none; z-index: 10; }
-        #hud h1 { margin: 0; font-size: 24px; color: #f39c12; letter-spacing: 1px; }
-        #hud p { margin: 5px 0; font-size: 14px; color: #bdc3c7; }
-        
-        #controls-info { position: absolute; top: 20px; right: 20px; background: rgba(0,0,0,0.7); color: #fff; padding: 15px; border-radius: 8px; border: 1px solid #f39c12; font-size: 13px; max-width: 280px; z-index: 10; }
-        #controls-info h3 { margin-top: 0; color: #f39c12; }
-        #controls-info ul { padding-left: 20px; margin: 5px 0; }
-
-        #chat-box { position: absolute; bottom: 20px; left: 20px; width: 350px; background: rgba(0, 0, 0, 0.75); border: 1px solid #f39c12; border-radius: 8px; display: flex; flex-direction: column; overflow: hidden; z-index: 10; }
-        #chat-messages { height: 140px; overflow-y: auto; padding: 10px; color: #fff; font-size: 13px; }
-        #chat-messages div { margin-bottom: 4px; }
-        #chat-input-container { display: flex; border-top: 1px solid rgba(255,255,255,0.2); }
-        #chat-input { flex: 1; background: transparent; border: none; padding: 10px; color: #fff; outline: none; }
-        #chat-send { background: #f39c12; border: none; padding: 10px 15px; color: #000; font-weight: bold; cursor: pointer; }
-
-        #notification { position: absolute; top: 15%; left: 50%; transform: translateX(-50%); background: rgba(243, 156, 18, 0.9); color: #000; padding: 10px 20px; border-radius: 20px; font-weight: bold; display: none; z-index: 100; }
-    </style>
-    <!-- Three.js CDN Fix -->
+    <title>Fantasy Realm 3D - MMORPG & Housing</title>
+    <!-- Tailwind CSS pour les interfaces UI -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome pour les icônes UI -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts Pixel / Fantasy Style -->
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;800&family=Plus+Jakarta+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Three.js pour 3D -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            user-select: none;
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background-color: #0b0f19;
+            color: #fff;
+        }
+        .fantasy-font { font-family: 'Cinzel', serif; }
+        canvas { display: block; width: 100vw; height: 100vh; }
+        .rpg-box {
+            background: rgba(15, 23, 42, 0.88);
+            border: 2px solid #fbbf24;
+            box-shadow: 0 0 15px rgba(251, 191, 36, 0.2), inset 0 0 15px rgba(0,0,0,0.5);
+            backdrop-filter: blur(8px);
+        }
+        .rpg-btn {
+            background: linear-gradient(135deg, #d97706 0%, #b45309 100%);
+            border: 1px solid #fef08a;
+            transition: all 0.2s ease;
+            cursor: pointer;
+        }
+        .rpg-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(245, 158, 11, 0.4);
+            filter: brightness(1.1);
+        }
+        #crosshair {
+            position: absolute;
+            top: 50%; left: 50%;
+            width: 8px; height: 8px;
+            background: white; border: 2px solid black;
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+        }
+    </style>
 </head>
 <body>
 
+    <!-- Canvas 3D -->
     <div id="canvas-container"></div>
+    <div id="crosshair" class="hidden"></div>
 
-    <div id="hud">
-        <h1>L'Académie Magique</h1>
-        <p>Explorez le château colossal de Poudlard</p>
-    </div>
+    <!-- UI: Écran de Création de Personnage -->
+    <div id="character-creation-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/90 backdrop-blur-md">
+        <div class="rpg-box w-full max-w-lg p-8 rounded-2xl border-2 border-amber-500 shadow-2xl text-center">
+            <h1 class="fantasy-font text-3xl font-bold text-amber-400 mb-2 tracking-wider">CREER VOTRE HEROS</h1>
+            <p class="text-xs text-slate-400 mb-6 uppercase tracking-widest">Aventure Médiévale & Poudlard</p>
 
-    <div id="controls-info">
-        <h3>Commandes</h3>
-        <ul>
-            <li><b>WASD / ZQSD</b> : Déplacements</li>
-            <li><b>Clic + Glisser</b> : Tourner la caméra</li>
-            <li><b>Majuscule</b> : Courir</li>
-            <li><b>Espace</b> : Sauter</li>
-            <li><b>Entrée</b> : Envoyer un message</li>
-        </ul>
-    </div>
+            <div class="space-y-4 text-left">
+                <div>
+                    <label class="block text-xs font-semibold uppercase tracking-wider text-amber-200 mb-1">Nom du Héros</label>
+                    <input type="text" id="hero-name-input" value="Aventurier" maxlength="16" class="w-full bg-slate-900/80 border border-amber-500/40 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-amber-400 text-sm">
+                </div>
 
-    <div id="chat-box">
-        <div id="chat-messages">
-            <div><b style="color: #f39c12;">[Système]:</b> Bienvenue à l'Académie Magique !</div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-semibold uppercase tracking-wider text-amber-200 mb-1">Peau</label>
+                        <input type="color" id="skin-color-input" value="#ffdbac" class="w-full h-10 bg-slate-900 border border-amber-500/40 rounded-lg cursor-pointer">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold uppercase tracking-wider text-amber-200 mb-1">Cheveux</label>
+                        <input type="color" id="hair-color-input" value="#f59e0b" class="w-full h-10 bg-slate-900 border border-amber-500/40 rounded-lg cursor-pointer">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold uppercase tracking-wider text-amber-200 mb-1">Tunique</label>
+                        <input type="color" id="top-color-input" value="#2c3e50" class="w-full h-10 bg-slate-900 border border-amber-500/40 rounded-lg cursor-pointer">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold uppercase tracking-wider text-amber-200 mb-1">Pantalon</label>
+                        <input type="color" id="bottom-color-input" value="#1a252f" class="w-full h-10 bg-slate-900 border border-amber-500/40 rounded-lg cursor-pointer">
+                    </div>
+                </div>
+            </div>
+
+            <button id="start-game-btn" class="rpg-btn w-full mt-8 py-3 rounded-xl font-bold text-amber-950 uppercase tracking-wider text-base shadow-lg">
+                Pénétrer dans le Royaume
+            </button>
         </div>
-        <div id="chat-input-container">
-            <input type="text" id="chat-input" placeholder="Discutez avec vos amis..." />
-            <button id="chat-send">Envoyer</button>
+    </div>
+
+    <!-- UI: HUD -->
+    <div id="hud-overlay" class="fixed inset-0 pointer-events-none z-10 flex flex-col justify-between p-6 hidden">
+        <div class="flex justify-between items-start">
+            <div class="rpg-box px-4 py-2 rounded-xl flex items-center space-x-3 pointer-events-auto">
+                <div class="w-10 h-10 rounded-full bg-amber-500/20 border border-amber-400 flex items-center justify-center text-amber-400 font-bold">
+                    <i class="fa-solid fa-user-shield text-lg"></i>
+                </div>
+                <div>
+                    <div id="hud-hero-name" class="font-bold text-amber-300 text-sm">Aventurier</div>
+                    <div class="text-xs text-emerald-400 flex items-center gap-1">
+                        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span> Connecté
+                    </div>
+                </div>
+            </div>
+
+            <div class="rpg-box p-3 rounded-xl text-xs space-y-1 text-slate-300 pointer-events-auto">
+                <div><span class="font-bold text-amber-400">WASD / ZQSD</span> : Déplacement</div>
+                <div><span class="font-bold text-amber-400">ESPACE</span> : Sauter</div>
+                <div><span class="font-bold text-amber-400">E</span> : Interagir (Terrain/PNJ)</div>
+                <div><span class="font-bold text-amber-400">B</span> : Mode Construction</div>
+                <div><span class="font-bold text-amber-400">Clic + Glisser</span> : Tourner Caméra</div>
+            </div>
+        </div>
+
+        <div id="interaction-prompt" class="self-center rpg-box px-6 py-3 rounded-full text-amber-300 font-bold text-sm tracking-wide hidden animate-bounce flex items-center gap-2 pointer-events-auto">
+            <span class="bg-amber-500 text-slate-950 px-2 py-0.5 rounded text-xs">E</span>
+            <span id="prompt-text">Acheter le Terrain</span>
+        </div>
+
+        <div class="flex justify-between items-end">
+            <div id="housing-status" class="rpg-box px-4 py-2 rounded-xl text-xs text-amber-200">
+                <i class="fa-solid fa-house-flag mr-2 text-amber-400"></i>
+                <span id="housing-status-text">Terrain : Aucun</span>
+            </div>
+            <div id="build-mode-indicator" class="rpg-box px-4 py-2 rounded-xl text-xs font-bold text-amber-400 hidden flex items-center gap-2">
+                <span class="w-3 h-3 rounded-full bg-amber-400 animate-ping"></span> MODE CONSTRUCTION ACTIF (Appuyer B)
+            </div>
         </div>
     </div>
 
-    <div id="notification">Notification</div>
+    <!-- UI: Dialogue Modal -->
+    <div id="dialogue-modal" class="fixed bottom-10 left-1/2 -translate-x-1/2 w-11/12 max-w-2xl rpg-box p-6 rounded-2xl z-30 hidden pointer-events-auto">
+        <div class="flex items-start gap-4">
+            <div class="w-14 h-14 rounded-2xl bg-amber-500/20 border-2 border-amber-400 flex items-center justify-center text-amber-300 text-2xl shrink-0">
+                <i class="fa-solid fa-comment-dots"></i>
+            </div>
+            <div class="flex-1">
+                <h3 id="npc-name" class="fantasy-font text-amber-400 font-bold text-lg mb-1">Garde</h3>
+                <p id="npc-text" class="text-sm text-slate-200 leading-relaxed mb-4">Bienvenue ! Explorez le château colossal et la vallée.</p>
+                <button id="close-dialogue-btn" class="rpg-btn px-4 py-1.5 rounded-lg text-xs font-bold text-amber-950 float-right">Continuer</button>
+            </div>
+        </div>
+    </div>
 
-    <script style="display:none;">
-        // Configuration Firebase (Insérez vos vraies clés lorsque vous publierez sur GitHub Pages)
+    <!-- UI: Land Buying Modal -->
+    <div id="land-modal" class="fixed inset-0 z-40 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm hidden pointer-events-auto">
+        <div class="rpg-box w-full max-w-md p-6 rounded-2xl text-center">
+            <h2 id="land-modal-title" class="fantasy-font text-2xl font-bold text-amber-400 mb-2">Terrain</h2>
+            <p class="text-xs text-slate-300 mb-6">Choisissez votre style de demeure :</p>
+            <div class="space-y-3 mb-6 text-left">
+                <div class="house-option p-3 rounded-xl border border-amber-500/30 bg-slate-900/50 hover:border-amber-400 cursor-pointer flex items-center gap-3" data-house="cottage">
+                    <div class="text-2xl text-amber-400"><i class="fa-solid fa-house-chimney"></i></div>
+                    <div><div class="font-bold text-sm text-amber-200">Chaumière Médiévale</div><div class="text-xs text-slate-400">Chaleureuse et rustique</div></div>
+                </div>
+                <div class="house-option p-3 rounded-xl border border-amber-500/30 bg-slate-900/50 hover:border-amber-400 cursor-pointer flex items-center gap-3" data-house="villa">
+                    <div class="text-2xl text-amber-400"><i class="fa-solid fa-house-building"></i></div>
+                    <div><div class="font-bold text-sm text-amber-200">Maison de Citadin</div><div class="text-xs text-slate-400">À étage avec pierres</div></div>
+                </div>
+            </div>
+            <div class="flex gap-3">
+                <button id="cancel-land-btn" class="w-1/2 py-2 rounded-xl border border-slate-600 bg-slate-800 text-slate-300 text-xs font-bold">Annuler</button>
+                <button id="confirm-buy-land-btn" class="w-1/2 rpg-btn py-2 rounded-xl text-amber-950 text-xs font-bold">Acquérir</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- FIREBASE MODULE -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, getDoc, onSnapshot, collection, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        window.FirebaseFirestore = { doc, setDoc, getDoc, onSnapshot, collection, updateDoc };
+
+        // Configuration Firebase (Modifiez si besoin pour GitHub Pages)
         const firebaseConfig = {
-            apiKey: "VOTRE_API_KEY",
-            authDomain: "votre-projet.firebaseapp.com",
-            databaseURL: "https://votre-projet-default-rtdb.firebaseio.com",
-            projectId: "votre-projet",
-            storageBucket: "votre-projet.appspot.com",
-            messagingSenderId: "123456789",
-            appId: "1:123456789:web:abcdef"
+            apiKey: "demo", authDomain: "demo.firebaseapp.com", projectId: "demo", storageBucket: "demo", messagingSenderId: "0", appId: "1"
         };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        signInAnonymously(auth).then((userCred) => {
+            window.MMO_NET.initNetwork(db, 'fantasy-mmorpg-poudlard', userCred.user.uid);
+        }).catch(() => {
+            window.MMO_NET.initNetwork(null, 'local', 'local_user');
+        });
     </script>
 
+    <!-- GAME ENGINE & NETWORK BRIDGE -->
     <script>
-        // ==========================================
-        // MOTEUR THREE.JS & MONDE 3D
-        // ==========================================
-        let scene, camera, renderer;
-        let colliders = []; // Boîtes de collision rigides pour les murs et escaliers
-        let player, playerBox;
-        let keys = {};
-        
-        // Physique Joueur
-        let playerVelocity = new THREE.Vector3();
-        const GRAVITY = -30;
-        const SPEED = 12;
-        const RUN_SPEED = 22;
-        let canJump = false;
-
-        // Contrôles Caméra
-        let isDragging = false;
-        let previousMousePosition = { x: 0, y: 0 };
-        let cameraAngles = { theta: 0, phi: 0.3 };
-
-        // Synchronisation locale
-        const localChannel = new BroadcastChannel('mmorpg_local_network');
-
-        function init() {
-            const container = document.getElementById('canvas-container');
-            
-            scene = new THREE.Scene();
-            scene.background = new THREE.Color(0x111625);
-            scene.fog = new THREE.FogExp2(0x111625, 0.003);
-
-            camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
-
-            renderer = new THREE.WebGLRenderer({ antialias: true });
-            renderer.setSize(window.innerWidth, window.innerHeight);
-            renderer.shadowMap.enabled = true;
-            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-            container.appendChild(renderer.domElement);
-
-            // Lumières
-            const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
-            scene.add(ambientLight);
-
-            const sunLight = new THREE.DirectionalLight(0xfffaed, 0.8);
-            sunLight.position.set(100, 200, 100);
-            sunLight.castShadow = true;
-            sunLight.shadow.mapSize.width = 2048;
-            sunLight.shadow.mapSize.height = 2048;
-            scene.add(sunLight);
-
-            // Terrains & Château Colossal
-            createTerrain();
-            createColossalCastle();
-
-            // Joueur
-            createPlayer();
-
-            // Événements
-            setupControls();
-            setupChat();
-
-            window.addEventListener('resize', onWindowResize);
-
-            // Lancement de la boucle de jeu
-            animate();
-        }
-
-        // ==========================================
-        // MATÉRIAUX & ARCHITECTURE
-        // ==========================================
-        function createTerrain() {
-            const groundGeo = new THREE.PlaneGeometry(1000, 1000);
-            const groundMat = new THREE.MeshStandardMaterial({ color: 0x2e5a27, roughness: 0.9 });
-            const ground = new THREE.Mesh(groundGeo, groundMat);
-            ground.rotation.x = -Math.PI / 2;
-            ground.receiveShadow = true;
-            scene.add(ground);
-        }
-
-        const stoneMat = new THREE.MeshStandardMaterial({ color: 0x5a5a66, roughness: 0.8 });
-        const wallMat = new THREE.MeshStandardMaterial({ color: 0x4a4a52, roughness: 0.8 });
-        const woodMat = new THREE.MeshStandardMaterial({ color: 0x4a2e12, roughness: 0.7 });
-        const roofMat = new THREE.MeshStandardMaterial({ color: 0x1c2833, roughness: 0.5 });
-
-        function createBoxCollider(x, y, z, w, h, d, material) {
-            const geo = new THREE.BoxGeometry(w, h, d);
-            const mesh = new THREE.Mesh(geo, material);
-            mesh.position.set(x, y, z);
-            mesh.castShadow = true;
-            mesh.receiveShadow = true;
-            scene.add(mesh);
-
-            const box = new THREE.Box3().setFromObject(mesh);
-            colliders.push(box);
-            return mesh;
-        }
-
-        function createColossalCastle() {
-            const cx = 0, cz = -100;
-            const hallW = 80, hallH = 35, hallD = 120;
-
-            // --- MURS EXTERIEURS DU CHÂTEAU ---
-            createBoxCollider(cx - hallW/2, hallH/2, cz, 2, hallH, hallD, wallMat); // Gauche
-            createBoxCollider(cx + hallW/2, hallH/2, cz, 2, hallH, hallD, wallMat); // Droit
-            createBoxCollider(cx, hallH/2, cz - hallD/2, hallW, hallH, 2, wallMat); // Fond
-
-            // Mur Façade (avec passage pour l'entrée)
-            createBoxCollider(cx - 25, hallH/2, cz + hallD/2, 30, hallH, 2, wallMat);
-            createBoxCollider(cx + 25, hallH/2, cz + hallD/2, 30, hallH, 2, wallMat);
-            createBoxCollider(cx, hallH - 5, cz + hallD/2, 20, 10, 2, wallMat); // Arche haut
-
-            // --- ÉTAGES INTERIEURS ---
-            // Sol Rez-de-chaussée
-            const floor0 = new THREE.Mesh(new THREE.BoxGeometry(hallW, 0.5, hallD), stoneMat);
-            floor0.position.set(cx, 0.25, cz);
-            scene.add(floor0);
-
-            // 1er Étage (Plancher praticable)
-            createBoxCollider(cx - 25, 12, cz, 28, 1, hallD - 20, stoneMat);
-            createBoxCollider(cx + 25, 12, cz, 28, 1, hallD - 20, stoneMat);
-
-            // 2ème Étage
-            createBoxCollider(cx, 24, cz - 20, hallW - 10, 1, 60, stoneMat);
-
-            // --- ESCALIERS SOLIDES ET PRATICABLES ---
-            createStaircase(cx - 10, 0, cz + 30, 18, 12, 22);
-            createStaircase(cx + 10, 12, cz - 10, 18, 12, 22);
-
-            // --- TOURS D'ANGLE GIGANTESQUES ---
-            const r = 14, h = 75;
-            const towers = [
-                { x: cx - hallW/2 - 5, z: cz - hallD/2 - 5 },
-                { x: cx + hallW/2 + 5, z: cz - hallD/2 - 5 },
-                { x: cx - hallW/2 - 5, z: cz + hallD/2 + 5 },
-                { x: cx + hallW/2 + 5, z: cz + hallD/2 + 5 }
-            ];
-
-            towers.forEach(t => {
-                const towerGeo = new THREE.CylinderGeometry(r, r, h, 16);
-                const tower = new THREE.Mesh(towerGeo, stoneMat);
-                tower.position.set(t.x, h/2, t.z);
-                scene.add(tower);
-                colliders.push(new THREE.Box3().setFromObject(tower));
-
-                const roofGeo = new THREE.ConeGeometry(r + 2, 20, 16);
-                const roof = new THREE.Mesh(roofGeo, roofMat);
-                roof.position.set(t.x, h + 10, t.z);
-                scene.add(roof);
-            });
-        }
-
-        function createStaircase(startX, startY, startZ, width, height, depth) {
-            const steps = 12;
-            const stepH = height / steps;
-            const stepD = depth / steps;
-
-            for (let i = 0; i < steps; i++) {
-                const x = startX;
-                const y = startY + (i * stepH) + (stepH / 2);
-                const z = startZ - (i * stepD);
-                createBoxCollider(x, y, z, width, stepH, stepD + 0.2, stoneMat);
+        window.MMO_NET = {
+            db: null, appId: null, userId: null,
+            initNetwork(db, appId, userId) {
+                this.db = db; this.appId = appId; this.userId = userId;
+                if (db) {
+                    this.listenToPlayers();
+                    this.listenToLands();
+                }
+            },
+            sendPlayerTransform(data) {
+                if (!this.db || !this.userId) return;
+                const { doc, setDoc } = window.FirebaseFirestore;
+                setDoc(doc(this.db, 'artifacts', this.appId, 'public', 'data', 'players', this.userId), data, { merge: true }).catch(()=>{});
+            },
+            listenToPlayers() {
+                if (!this.db) return;
+                const { collection, onSnapshot } = window.FirebaseFirestore;
+                onSnapshot(collection(this.db, 'artifacts', this.appId, 'public', 'data', 'players'), (snapshot) => {
+                    snapshot.docChanges().forEach((change) => {
+                        const id = change.doc.id;
+                        if (id === this.userId) return;
+                        if (change.type === "removed") window.GameEngine.removeOtherPlayer(id);
+                        else window.GameEngine.updateOtherPlayer(id, change.doc.data());
+                    });
+                });
+            },
+            async buyLand(landId, houseType) {
+                if (!this.db || !this.userId) return true; // Mode local
+                const { doc, getDoc, setDoc } = window.FirebaseFirestore;
+                const landDoc = doc(this.db, 'artifacts', this.appId, 'public', 'data', 'lands', `land_${landId}`);
+                const snap = await getDoc(landDoc);
+                if (snap.exists() && snap.data().ownerId && snap.data().ownerId !== this.userId) {
+                    alert("Ce terrain appartient déjà à quelqu'un d'autre !");
+                    return false;
+                }
+                await setDoc(landDoc, {
+                    landId, ownerId: this.userId, ownerName: window.GameEngine.localPlayer.name, houseType, items: []
+                }, { merge: true });
+                return true;
+            },
+            listenToLands() {
+                if (!this.db) return;
+                const { collection, onSnapshot } = window.FirebaseFirestore;
+                onSnapshot(collection(this.db, 'artifacts', this.appId, 'public', 'data', 'lands'), (snapshot) => {
+                    snapshot.docs.forEach((docSnap) => window.GameEngine.syncLandData(docSnap.data()));
+                });
             }
-        }
+        };
 
-        // ==========================================
-        // JOUEUR ET DÉPLACEMENTS
-        // ==========================================
-        function createPlayer() {
-            player = new THREE.Group();
+        const GameEngine = {
+            scene: null, camera: null, renderer: null,
+            colliders: [], // Boîtes de collision strictes (murs et escaliers)
+            lands: [], otherPlayersMeshes: {},
+            interactiveObjects: [], currentInteraction: null,
+            keys: {}, isDragging: false, prevMouse: { x: 0, y: 0 },
+            cameraAngles: { theta: 0, phi: 0.4 },
             
-            const bodyGeo = new THREE.CylinderGeometry(0.6, 0.8, 2.5, 8);
-            const bodyMat = new THREE.MeshStandardMaterial({ color: 0x2c3e50 });
-            const body = new THREE.Mesh(bodyGeo, bodyMat);
-            body.position.y = 1.25;
-            player.add(body);
+            localPlayer: {
+                mesh: null, name: "Aventurier", colorData: {},
+                x: 0, y: 2, z: 60, ry: 0, vy: 0, isGrounded: true, ownedLandId: null
+            },
 
-            const headGeo = new THREE.SphereGeometry(0.5, 16, 16);
-            const headMat = new THREE.MeshStandardMaterial({ color: 0xffdbac });
-            const head = new THREE.Mesh(headGeo, headMat);
-            head.position.y = 2.7;
-            player.add(head);
+            init() {
+                const container = document.getElementById('canvas-container');
+                this.scene = new THREE.Scene();
+                this.scene.background = new THREE.Color(0x0f172a);
+                this.scene.fog = new THREE.FogExp2(0x0f172a, 0.005);
 
-            player.position.set(0, 2, 50);
-            scene.add(player);
+                this.camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
 
-            playerBox = new THREE.Box3();
-        }
+                this.renderer = new THREE.WebGLRenderer({ antialias: true });
+                this.renderer.setSize(window.innerWidth, window.innerHeight);
+                this.renderer.shadowMap.enabled = true;
+                container.appendChild(this.renderer.domElement);
 
-        function updatePlayer(delta) {
-            const speed = (keys['ShiftLeft'] || keys['ShiftRight'] ? RUN_SPEED : SPEED) * delta;
-            let moveDir = new THREE.Vector3(0, 0, 0);
+                // Éclairage
+                const ambient = new THREE.AmbientLight(0xffffff, 0.5);
+                this.scene.add(ambient);
 
-            if (keys['KeyW'] || keys['ArrowUp']) moveDir.z -= 1;
-            if (keys['KeyS'] || keys['ArrowDown']) moveDir.z += 1;
-            if (keys['KeyA'] || keys['ArrowLeft']) moveDir.x -= 1;
-            if (keys['KeyD'] || keys['ArrowRight']) moveDir.x += 1;
+                const sun = new THREE.DirectionalLight(0xfffaed, 0.9);
+                sun.position.set(120, 200, 100);
+                sun.castShadow = true;
+                this.scene.add(sun);
 
-            moveDir.normalize();
+                // Construction de l'univers
+                this.buildTerrain();
+                this.buildColossalCastle();
+                this.generate35Lands();
 
-            if (moveDir.length() > 0) {
-                const angle = Math.atan2(moveDir.x, moveDir.z) + cameraAngles.theta;
-                player.rotation.y = angle;
+                // Gestion UI & Démarrage
+                this.setupUIEvents();
+                this.setupControls();
 
-                const moveX = Math.sin(angle) * speed;
-                const moveZ = Math.cos(angle) * speed;
+                window.addEventListener('resize', () => this.onWindowResize());
+                this.animate();
+            },
 
-                // Test axe X
-                player.position.x += moveX;
-                updatePlayerBox();
-                if (checkCollisions()) player.position.x -= moveX;
+            buildTerrain() {
+                const ground = new THREE.Mesh(
+                    new THREE.PlaneGeometry(800, 800),
+                    new THREE.MeshStandardMaterial({ color: 0x2e5a27, roughness: 0.9 })
+                );
+                ground.rotation.x = -Math.PI / 2;
+                ground.receiveShadow = true;
+                this.scene.add(ground);
+            },
 
-                // Test axe Z
-                player.position.z += moveZ;
-                updatePlayerBox();
-                if (checkCollisions()) player.position.z -= moveZ;
-            }
+            // Helper pour murs et escaliers avec collisions automatiques
+            createColliderBox(x, y, z, w, h, d, material, visible = true) {
+                const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), material);
+                mesh.position.set(x, y, z);
+                mesh.castShadow = true;
+                mesh.receiveShadow = true;
+                mesh.visible = visible;
+                this.scene.add(mesh);
 
-            // Gravité et montées des marches
-            playerVelocity.y += GRAVITY * delta;
-            player.position.y += playerVelocity.y * delta;
-            updatePlayerBox();
+                this.colliders.push(new THREE.Box3().setFromObject(mesh));
+                return mesh;
+            },
 
-            for (let box of colliders) {
-                if (playerBox.intersectsBox(box)) {
-                    if (playerVelocity.y < 0 && player.position.y >= box.max.y - 0.5) {
-                        player.position.y = box.max.y;
-                        playerVelocity.y = 0;
-                        canJump = true;
-                        break;
+            buildColossalCastle() {
+                const cx = 0, cz = -120; // Château positionné au nord
+                const hallW = 90, hallH = 40, hallD = 140;
+
+                const stoneMat = new THREE.MeshStandardMaterial({ color: 0x5a5a66, roughness: 0.8 });
+                const wallMat = new THREE.MeshStandardMaterial({ color: 0x474752, roughness: 0.8 });
+                const roofMat = new THREE.MeshStandardMaterial({ color: 0x1c2833, roughness: 0.5 });
+
+                // Murs extérieurs du château (laissant l'intérieur creux et accessible)
+                this.createColliderBox(cx - hallW/2, hallH/2, cz, 2, hallH, hallD, wallMat); // Mur Gauche
+                this.createColliderBox(cx + hallW/2, hallH/2, cz, 2, hallH, hallD, wallMat); // Mur Droit
+                this.createColliderBox(cx, hallH/2, cz - hallD/2, hallW, hallH, 2, wallMat); // Mur Fond
+
+                // Façade avant avec grande arche d'entrée ouverte
+                this.createColliderBox(cx - 30, hallH/2, cz + hallD/2, 30, hallH, 2, wallMat);
+                this.createColliderBox(cx + 30, hallH/2, cz + hallD/2, 30, hallH, 2, wallMat);
+                this.createColliderBox(cx, hallH - 6, cz + hallD/2, 30, 12, 2, wallMat); // Linteau haut
+
+                // Planchers intermédiaires praticables
+                const floor0 = new THREE.Mesh(new THREE.BoxGeometry(hallW, 0.6, hallD), stoneMat);
+                floor0.position.set(cx, 0.3, cz);
+                floor0.receiveShadow = true;
+                this.scene.add(floor0);
+
+                // 1er Étage Mezzanine
+                this.createColliderBox(cx - 28, 14, cz, 30, 1, hallD - 20, stoneMat);
+                this.createColliderBox(cx + 28, 14, cz, 30, 1, hallD - 20, stoneMat);
+
+                // 2ème Étage Donjon
+                this.createColliderBox(cx, 26, cz - 20, hallW - 15, 1, 70, stoneMat);
+
+                // Escaliers solides et praticables menant aux étages
+                this.buildSolidStaircase(cx - 12, 0, cz + 40, 20, 14, 25);
+                this.buildSolidStaircase(cx + 12, 14, cz - 10, 20, 12, 22);
+
+                // Tours monumentales d'angle
+                const towerRadius = 14, towerHeight = 85;
+                const towers = [
+                    { x: cx - hallW/2 - 6, z: cz - hallD/2 - 6 },
+                    { x: cx + hallW/2 + 6, z: cz - hallD/2 - 6 },
+                    { x: cx - hallW/2 - 6, z: cz + hallD/2 + 6 },
+                    { x: cx + hallW/2 + 6, z: cz + hallD/2 + 6 }
+                ];
+                towers.forEach(t => {
+                    const tower = new THREE.Mesh(new THREE.CylinderGeometry(towerRadius, towerRadius, towerHeight, 16), stoneMat);
+                    tower.position.set(t.x, towerHeight/2, t.z);
+                    this.scene.add(tower);
+                    this.colliders.push(new THREE.Box3().setFromObject(tower));
+
+                    const roof = new THREE.Mesh(new THREE.ConeGeometry(towerRadius + 3, 22, 16), roofMat);
+                    roof.position.set(t.x, towerHeight + 11, t.z);
+                    this.scene.add(roof);
+                });
+            },
+
+            buildSolidStaircase(startX, startY, startZ, width, height, depth) {
+                const steps = 14;
+                const stepH = height / steps;
+                const stepD = depth / steps;
+                const stoneMat = new THREE.MeshStandardMaterial({ color: 0x5a5a66, roughness: 0.8 });
+
+                for (let i = 0; i < steps; i++) {
+                    const y = startY + (i * stepH) + (stepH / 2);
+                    const z = startZ - (i * stepD);
+                    this.createColliderBox(startX, y, z, width, stepH, stepD + 0.3, stoneMat);
+                }
+            },
+
+            generate35Lands() {
+                const landSize = 14;
+                const totalLands = 35;
+                let count = 0;
+                const radii = [45, 70, 95];
+
+                for (let r = 0; r < radii.length && count < totalLands; r++) {
+                    const radius = radii[r];
+                    const numInRing = Math.floor((2 * Math.PI * radius) / (landSize + 6));
+                    
+                    for (let i = 0; i < numInRing && count < totalLands; i++) {
+                        count++;
+                        const angle = (i / numInRing) * Math.PI * 2;
+                        const x = Math.cos(angle) * radius;
+                        const z = Math.sin(angle) * radius;
+
+                        const landGroup = new THREE.Group();
+                        landGroup.position.set(x, 0, z);
+
+                        // Panneau du terrain
+                        const signPost = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.15, 2), new THREE.MeshStandardMaterial({color: 0x78350f}));
+                        signPost.position.set(0, 1, landSize/2 + 0.5);
+                        const board = new THREE.Mesh(new THREE.BoxGeometry(1.5, 1, 0.2), new THREE.MeshStandardMaterial({color: 0xd97706}));
+                        board.position.set(0, 1.8, landSize/2 + 0.5);
+                        landGroup.add(signPost, board);
+                        this.scene.add(landGroup);
+
+                        this.lands.push({ id: count, x, z, size: landSize, ownerId: null, houseType: null, group: landGroup });
+                        this.interactiveObjects.push({ type: 'land', landId: count, position: new THREE.Vector3(x, 0, z + landSize/2 + 1), radius: 3 });
                     }
                 }
-            }
+            },
 
-            if (player.position.y <= 0) {
-                player.position.y = 0;
-                playerVelocity.y = 0;
-                canJump = true;
-            }
+            createPlayer(colors, name) {
+                const playerGroup = new THREE.Group();
+                
+                const skinMat = new THREE.MeshStandardMaterial({ color: colors.skin });
+                const hairMat = new THREE.MeshStandardMaterial({ color: colors.hair });
+                const topMat = new THREE.MeshStandardMaterial({ color: colors.top });
+                const bottomMat = new THREE.MeshStandardMaterial({ color: colors.bottom });
 
-            if (keys['Space'] && canJump) {
-                playerVelocity.y = 12;
-                canJump = false;
-            }
+                // Corps
+                const body = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.7, 2.2, 8), topMat);
+                body.position.y = 1.1; body.castShadow = true;
+                playerGroup.add(body);
 
-            updateCamera();
-        }
+                // Tête & Cheveux
+                const head = new THREE.Mesh(new THREE.SphereGeometry(0.45, 16, 16), skinMat);
+                head.position.y = 2.4;
+                const hair = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.4, 0.9), hairMat);
+                hair.position.y = 2.7;
+                playerGroup.add(head, hair);
 
-        function updatePlayerBox() {
-            playerBox.setFromCenterAndSize(
-                new THREE.Vector3(player.position.x, player.position.y + 1.5, player.position.z),
-                new THREE.Vector3(1.2, 3.0, 1.2)
-            );
-        }
+                playerGroup.position.set(0, 2, 50);
+                this.scene.add(playerGroup);
 
-        function checkCollisions() {
-            for (let box of colliders) {
-                if (playerBox.intersectsBox(box)) {
-                    if (player.position.y < box.max.y - 0.4) {
+                this.localPlayer.mesh = playerGroup;
+                this.localPlayer.name = name;
+                this.localPlayer.colorData = colors;
+            },
+
+            setupUIEvents() {
+                document.getElementById('start-game-btn').addEventListener('click', () => {
+                    const name = document.getElementById('hero-name-input').value || 'Aventurier';
+                    const colors = {
+                        skin: document.getElementById('skin-color-input').value,
+                        hair: document.getElementById('hair-color-input').value,
+                        top: document.getElementById('top-color-input').value,
+                        bottom: document.getElementById('bottom-color-input').value
+                    };
+
+                    document.getElementById('character-creation-modal').style.display = 'none';
+                    document.getElementById('hud-overlay').classList.remove('hidden');
+                    document.getElementById('crosshair').classList.remove('hidden');
+                    document.getElementById('hud-hero-name').innerText = name;
+
+                    this.createPlayer(colors, name);
+                });
+
+                // Gestion interaction terrain
+                document.getElementById('confirm-buy-land-btn').addEventListener('click', async () => {
+                    const modal = document.getElementById('land-modal');
+                    const landId = modal.dataset.landId;
+                    const houseType = modal.dataset.selectedHouse || 'cottage';
+                    
+                    const success = await window.MMO_NET.buyLand(landId, houseType);
+                    if (success) {
+                        modal.style.display = 'none';
+                        this.localPlayer.ownedLandId = landId;
+                        document.getElementById('housing-status-text').innerText = `Terrain #${landId} (${houseType})`;
+                    }
+                });
+
+                document.getElementById('cancel-land-btn').addEventListener('click', () => {
+                    document.getElementById('land-modal').style.display = 'none';
+                });
+
+                document.querySelectorAll('.house-option').forEach(el => {
+                    el.addEventListener('click', () => {
+                        document.querySelectorAll('.house-option').forEach(o => o.classList.remove('border-amber-400', 'bg-amber-500/10'));
+                        el.classList.add('border-amber-400', 'bg-amber-500/10');
+                        document.getElementById('land-modal').dataset.selectedHouse = el.dataset.house;
+                    });
+                });
+            },
+
+            setupControls() {
+                window.addEventListener('keydown', e => { this.keys[e.code] = true; });
+                window.addEventListener('keyup', e => { this.keys[e.code] = false; });
+
+                window.addEventListener('mousedown', e => {
+                    if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'BUTTON') {
+                        this.isDragging = true;
+                        this.prevMouse = { x: e.clientX, y: e.clientY };
+                    }
+                });
+                window.addEventListener('mouseup', () => this.isDragging = false);
+                window.addEventListener('mousemove', e => {
+                    if (!this.isDragging) return;
+                    const dx = e.clientX - this.prevMouse.x;
+                    const dy = e.clientY - this.prevMouse.y;
+                    this.cameraAngles.theta -= dx * 0.005;
+                    this.cameraAngles.phi = Math.max(0.1, Math.min(Math.PI/2 - 0.1, this.cameraAngles.phi + dy * 0.005));
+                    this.prevMouse = { x: e.clientX, y: e.clientY };
+                });
+
+                window.addEventListener('keydown', e => {
+                    if (e.code === 'KeyE' && this.currentInteraction) {
+                        this.triggerInteraction(this.currentInteraction);
+                    }
+                });
+            },
+
+            triggerInteraction(obj) {
+                if (obj.type === 'land') {
+                    const modal = document.getElementById('land-modal');
+                    modal.dataset.landId = obj.landId;
+                    document.getElementById('land-modal-title').innerText = `Terrain #${obj.landId}`;
+                    modal.style.display = 'flex';
+                }
+            },
+
+            updatePlayer(delta) {
+                if (!this.localPlayer.mesh) return;
+                const p = this.localPlayer.mesh;
+                const speed = (this.keys['ShiftLeft'] ? 22 : 12) * delta;
+                let move = new THREE.Vector3();
+
+                if (this.keys['KeyW'] || this.keys['ArrowUp']) move.z -= 1;
+                if (this.keys['KeyS'] || this.keys['ArrowDown']) move.z += 1;
+                if (this.keys['KeyA'] || this.keys['ArrowLeft']) move.x -= 1;
+                if (this.keys['KeyD'] || this.keys['ArrowRight']) move.x += 1;
+                move.normalize();
+
+                if (move.length() > 0) {
+                    const angle = Math.atan2(move.x, move.z) + this.cameraAngles.theta;
+                    p.rotation.y = angle;
+                    const mx = Math.sin(angle) * speed;
+                    const mz = Math.cos(angle) * speed;
+
+                    // Collision X
+                    p.position.x += mx;
+                    if (this.checkWallCollision()) p.position.x -= mx;
+
+                    // Collision Z
+                    p.position.z += mz;
+                    if (this.checkWallCollision()) p.position.z -= mz;
+                }
+
+                // Gravité et montées des escaliers / sols
+                this.localPlayer.vy -= 30 * delta;
+                p.position.y += this.localPlayer.vy * delta;
+
+                const playerBox = new THREE.Box3().setFromObject(p);
+                let onGround = false;
+
+                for (let box of this.colliders) {
+                    if (playerBox.intersectsBox(box)) {
+                        if (this.localPlayer.vy < 0 && p.position.y >= box.max.y - 0.4) {
+                            p.position.y = box.max.y;
+                            this.localPlayer.vy = 0;
+                            onGround = true;
+                            break;
+                        }
+                    }
+                }
+
+                if (p.position.y <= 0) {
+                    p.position.y = 0;
+                    this.localPlayer.vy = 0;
+                    onGround = true;
+                }
+
+                if (this.keys['Space'] && onGround) {
+                    this.localPlayer.vy = 12;
+                }
+
+                this.updateCamera();
+                this.checkInteractions();
+
+                // Synchro multijoueur
+                window.MMO_NET.sendPlayerTransform({
+                    name: this.localPlayer.name,
+                    colorData: this.localPlayer.colorData,
+                    x: p.position.x, y: p.position.y, z: p.position.z, ry: p.rotation.y
+                });
+            },
+
+            checkWallCollision() {
+                const box = new THREE.Box3().setFromObject(this.localPlayer.mesh);
+                for (let b of this.colliders) {
+                    if (box.intersectsBox(b) && this.localPlayer.mesh.position.y < b.max.y - 0.3) {
                         return true;
                     }
                 }
-            }
-            return false;
-        }
+                return false;
+            },
 
-        function updateCamera() {
-            const dist = 18;
-            camera.position.x = player.position.x + dist * Math.sin(cameraAngles.theta) * Math.cos(cameraAngles.phi);
-            camera.position.y = player.position.y + 3 + dist * Math.sin(cameraAngles.phi);
-            camera.position.z = player.position.z + dist * Math.cos(cameraAngles.theta) * Math.cos(cameraAngles.phi);
-            camera.lookAt(player.position.x, player.position.y + 2, player.position.z);
-        }
+            updateCamera() {
+                const p = this.localPlayer.mesh.position;
+                const dist = 16;
+                this.camera.position.x = p.x + dist * Math.sin(this.cameraAngles.theta) * Math.cos(this.cameraAngles.phi);
+                this.camera.position.y = p.y + 3 + dist * Math.sin(this.cameraAngles.phi);
+                this.camera.position.z = p.z + dist * Math.cos(this.cameraAngles.theta) * Math.cos(this.cameraAngles.phi);
+                this.camera.lookAt(p.x, p.y + 2, p.z);
+            },
 
-        function setupControls() {
-            window.addEventListener('keydown', e => {
-                if (document.activeElement === document.getElementById('chat-input')) return;
-                keys[e.code] = true;
-            });
-            window.addEventListener('keyup', e => { keys[e.code] = false; });
-
-            window.addEventListener('mousedown', e => {
-                if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'BUTTON') {
-                    isDragging = true;
-                    previousMousePosition = { x: e.clientX, y: e.clientY };
+            checkInteractions() {
+                const p = this.localPlayer.mesh.position;
+                let found = null;
+                for (let obj of this.interactiveObjects) {
+                    if (p.distanceTo(obj.position) < obj.radius) {
+                        found = obj;
+                        break;
+                    }
                 }
-            });
-            window.addEventListener('mouseup', () => isDragging = false);
-
-            window.addEventListener('mousemove', e => {
-                if (!isDragging) return;
-                const deltaX = e.clientX - previousMousePosition.x;
-                const deltaY = e.clientY - previousMousePosition.y;
-
-                cameraAngles.theta -= deltaX * 0.005;
-                cameraAngles.phi = Math.max(0.1, Math.min(Math.PI / 2 - 0.1, cameraAngles.phi + deltaY * 0.005));
-
-                previousMousePosition = { x: e.clientX, y: e.clientY };
-            });
-        }
-
-        function setupChat() {
-            const input = document.getElementById('chat-input');
-            const btn = document.getElementById('chat-send');
-            const messages = document.getElementById('chat-messages');
-
-            function sendMessage() {
-                const text = input.value.trim();
-                if (!text) return;
-                const msgDiv = document.createElement('div');
-                msgDiv.innerHTML = `<b>Vous:</b> ${text}`;
-                messages.appendChild(msgDiv);
-                messages.scrollTop = messages.scrollHeight;
-                localChannel.postMessage({ type: 'chat', text });
-                input.value = '';
-            }
-
-            btn.addEventListener('click', sendMessage);
-            input.addEventListener('keydown', e => { if (e.key === 'Enter') sendMessage(); });
-
-            localChannel.onmessage = e => {
-                if (e.data.type === 'chat') {
-                    const msgDiv = document.createElement('div');
-                    msgDiv.innerHTML = `<b style="color:#3498db;">Ami:</b> ${e.data.text}`;
-                    messages.appendChild(msgDiv);
-                    messages.scrollTop = messages.scrollHeight;
+                const prompt = document.getElementById('interaction-prompt');
+                if (found) {
+                    prompt.classList.remove('hidden');
+                    document.getElementById('prompt-text').innerText = `Gérer le Terrain #${found.landId}`;
+                    this.currentInteraction = found;
+                } else {
+                    prompt.classList.add('hidden');
+                    this.currentInteraction = null;
                 }
-            };
-        }
+            },
 
-        function onWindowResize() {
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
-        }
+            updateOtherPlayer(id, data) {
+                let mesh = this.otherPlayersMeshes[id];
+                if (!mesh) {
+                    mesh = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.7, 2.2, 8), new THREE.MeshStandardMaterial({color: 0x3498db}));
+                    this.scene.add(mesh);
+                    this.otherPlayersMeshes[id] = mesh;
+                }
+                mesh.position.set(data.x, data.y, data.z);
+                mesh.rotation.y = data.ry;
+            },
 
-        let clock = new THREE.Clock();
-        function animate() {
-            requestAnimationFrame(animate);
-            const delta = Math.min(clock.getDelta(), 0.1);
-            updatePlayer(delta);
-            renderer.render(scene, camera);
-        }
+            removeOtherPlayer(id) {
+                if (this.otherPlayersMeshes[id]) {
+                    this.scene.remove(this.otherPlayersMeshes[id]);
+                    delete this.otherPlayersMeshes[id];
+                }
+            },
 
-        window.onload = init;
+            syncLandData(landData) {
+                const land = this.lands.find(l => l.id === landData.landId);
+                if (land) {
+                    land.ownerId = landData.ownerId;
+                    land.houseType = landData.houseType;
+                }
+            },
+
+            onWindowResize() {
+                this.camera.aspect = window.innerWidth / window.innerHeight;
+                this.camera.updateProjectionMatrix();
+                this.renderer.setSize(window.innerWidth, window.innerHeight);
+            },
+
+            animate() {
+                requestAnimationFrame(() => this.animate());
+                const delta = 0.016;
+                this.updatePlayer(delta);
+                this.renderer.render(this.scene, this.camera);
+            }
+        };
+
+        window.onload = () => GameEngine.init();
     </script>
 </body>
 </html>
