@@ -9,15 +9,15 @@
         #canvas-container { width: 100vw; height: 100vh; }
         
         /* UI Elements */
-        #hud { position: absolute; top: 20px; left: 20px; color: #fff; text-shadow: 2px 2px 4px #000; pointer-events: none; }
+        #hud { position: absolute; top: 20px; left: 20px; color: #fff; text-shadow: 2px 2px 4px #000; pointer-events: none; z-index: 10; }
         #hud h1 { margin: 0; font-size: 24px; color: #f39c12; letter-spacing: 1px; }
         #hud p { margin: 5px 0; font-size: 14px; color: #bdc3c7; }
         
-        #controls-info { position: absolute; top: 20px; right: 20px; background: rgba(0,0,0,0.7); color: #fff; padding: 15px; border-radius: 8px; border: 1px solid #f39c12; font-size: 13px; max-width: 280px; }
+        #controls-info { position: absolute; top: 20px; right: 20px; background: rgba(0,0,0,0.7); color: #fff; padding: 15px; border-radius: 8px; border: 1px solid #f39c12; font-size: 13px; max-width: 280px; z-index: 10; }
         #controls-info h3 { margin-top: 0; color: #f39c12; }
         #controls-info ul { padding-left: 20px; margin: 5px 0; }
 
-        #chat-box { position: absolute; bottom: 20px; left: 20px; width: 350px; background: rgba(0, 0, 0, 0.75); border: 1px solid #f39c12; border-radius: 8px; display: flex; flex-direction: column; overflow: hidden; }
+        #chat-box { position: absolute; bottom: 20px; left: 20px; width: 350px; background: rgba(0, 0, 0, 0.75); border: 1px solid #f39c12; border-radius: 8px; display: flex; flex-direction: column; overflow: hidden; z-index: 10; }
         #chat-messages { height: 140px; overflow-y: auto; padding: 10px; color: #fff; font-size: 13px; }
         #chat-messages div { margin-bottom: 4px; }
         #chat-input-container { display: flex; border-top: 1px solid rgba(255,255,255,0.2); }
@@ -26,8 +26,8 @@
 
         #notification { position: absolute; top: 15%; left: 50%; transform: translateX(-50%); background: rgba(243, 156, 18, 0.9); color: #000; padding: 10px 20px; border-radius: 20px; font-weight: bold; display: none; z-index: 100; }
     </style>
-    <!-- Three.js CDN -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.min.js"></script>
+    <!-- Three.js CDN Fix -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 </head>
 <body>
 
@@ -35,7 +35,7 @@
 
     <div id="hud">
         <h1>L'Académie Magique</h1>
-        <p>Explorez la vallée et le château colossal de Poudlard</p>
+        <p>Explorez le château colossal de Poudlard</p>
     </div>
 
     <div id="controls-info">
@@ -45,7 +45,7 @@
             <li><b>Clic + Glisser</b> : Tourner la caméra</li>
             <li><b>Majuscule</b> : Courir</li>
             <li><b>Espace</b> : Sauter</li>
-            <li><b>Entrée</b> : Ouvrir / Envoyer le chat</li>
+            <li><b>Entrée</b> : Envoyer un message</li>
         </ul>
     </div>
 
@@ -54,21 +54,15 @@
             <div><b style="color: #f39c12;">[Système]:</b> Bienvenue à l'Académie Magique !</div>
         </div>
         <div id="chat-input-container">
-            <input type="text" id="chat-input" placeholder="Appuyez sur Entrée pour discuter..." />
+            <input type="text" id="chat-input" placeholder="Discutez avec vos amis..." />
             <button id="chat-send">Envoyer</button>
         </div>
     </div>
 
     <div id="notification">Notification</div>
 
-    <script type="module">
-        // ==========================================
-        // 1. CONFIGURATION FIREBASE (POUR MULTIJOUEUR EN LIGNE)
-        // ==========================================
-        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js';
-        import { getDatabase, ref, set, onValue, push, onChildAdded } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js';
-
-        // Remplacez les identifiants ci-dessous par ceux de votre projet Firebase
+    <script style="display:none;">
+        // Configuration Firebase (Insérez vos vraies clés lorsque vous publierez sur GitHub Pages)
         const firebaseConfig = {
             apiKey: "VOTRE_API_KEY",
             authDomain: "votre-projet.firebaseapp.com",
@@ -78,39 +72,14 @@
             messagingSenderId: "123456789",
             appId: "1:123456789:web:abcdef"
         };
+    </script>
 
-        let db = null;
-        let isOnline = false;
-
-        try {
-            if (firebaseConfig.apiKey !== "VOTRE_API_KEY") {
-                const app = initializeApp(firebaseConfig);
-                db = getDatabase(app);
-                isOnline = true;
-                console.log("Firebase connecté avec succès !");
-            } else {
-                console.warn("Firebase non configuré : Mode hors-ligne / réseau local activé.");
-            }
-        } catch (e) {
-            console.error("Erreur d'initialisation Firebase:", e);
-        }
-
-        // BroadcastChannel pour la synchronisation réseau local (sur la même machine)
-        const localChannel = new BroadcastChannel('mmorpg_local_network');
-
-        // Notification UI
-        function showNotification(msg) {
-            const notif = document.getElementById('notification');
-            notif.innerText = msg;
-            notif.style.display = 'block';
-            setTimeout(() => { notif.style.display = 'none'; }, 3000);
-        }
-
+    <script>
         // ==========================================
-        // 2. MOTEUR THREE.JS & MONDE 3D
+        // MOTEUR THREE.JS & MONDE 3D
         // ==========================================
         let scene, camera, renderer;
-        let colliders = []; // Boîtes de collision rigides
+        let colliders = []; // Boîtes de collision rigides pour les murs et escaliers
         let player, playerBox;
         let keys = {};
         
@@ -126,12 +95,15 @@
         let previousMousePosition = { x: 0, y: 0 };
         let cameraAngles = { theta: 0, phi: 0.3 };
 
+        // Synchronisation locale
+        const localChannel = new BroadcastChannel('mmorpg_local_network');
+
         function init() {
             const container = document.getElementById('canvas-container');
             
             scene = new THREE.Scene();
-            scene.background = new THREE.Color(0x0a0a1a);
-            scene.fog = new THREE.FogExp2(0x0a0a1a, 0.005);
+            scene.background = new THREE.Color(0x111625);
+            scene.fog = new THREE.FogExp2(0x111625, 0.003);
 
             camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
 
@@ -142,7 +114,7 @@
             container.appendChild(renderer.domElement);
 
             // Lumières
-            const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
             scene.add(ambientLight);
 
             const sunLight = new THREE.DirectionalLight(0xfffaed, 0.8);
@@ -150,19 +122,10 @@
             sunLight.castShadow = true;
             sunLight.shadow.mapSize.width = 2048;
             sunLight.shadow.mapSize.height = 2048;
-            sunLight.shadow.camera.near = 0.5;
-            sunLight.shadow.camera.far = 500;
-            const d = 150;
-            sunLight.shadow.camera.left = -d;
-            sunLight.shadow.camera.right = d;
-            sunLight.shadow.camera.top = d;
-            sunLight.shadow.camera.bottom = -d;
             scene.add(sunLight);
 
-            // Sol / Terrains
+            // Terrains & Château Colossal
             createTerrain();
-
-            // Création du Château Géant
             createColossalCastle();
 
             // Joueur
@@ -174,15 +137,15 @@
 
             window.addEventListener('resize', onWindowResize);
 
-            // Boucle de rendu
+            // Lancement de la boucle de jeu
             animate();
         }
 
         // ==========================================
-        // 3. CRÉATION DU SOL & MATÉRIAUX
+        // MATÉRIAUX & ARCHITECTURE
         // ==========================================
         function createTerrain() {
-            const groundGeo = new THREE.PlaneGeometry(800, 800);
+            const groundGeo = new THREE.PlaneGeometry(1000, 1000);
             const groundMat = new THREE.MeshStandardMaterial({ color: 0x2e5a27, roughness: 0.9 });
             const ground = new THREE.Mesh(groundGeo, groundMat);
             ground.rotation.x = -Math.PI / 2;
@@ -190,173 +153,117 @@
             scene.add(ground);
         }
 
-        // Matériaux du Château
         const stoneMat = new THREE.MeshStandardMaterial({ color: 0x5a5a66, roughness: 0.8 });
         const wallMat = new THREE.MeshStandardMaterial({ color: 0x4a4a52, roughness: 0.8 });
         const woodMat = new THREE.MeshStandardMaterial({ color: 0x4a2e12, roughness: 0.7 });
         const roofMat = new THREE.MeshStandardMaterial({ color: 0x1c2833, roughness: 0.5 });
-        const goldMat = new THREE.MeshStandardMaterial({ color: 0xf1c40f, metalness: 0.8, roughness: 0.2 });
 
-        // Helper pour ajouter un mur avec collision automatique
-        function createBoxCollider(x, y, z, w, h, d, material, visible = true) {
+        function createBoxCollider(x, y, z, w, h, d, material) {
             const geo = new THREE.BoxGeometry(w, h, d);
             const mesh = new THREE.Mesh(geo, material);
             mesh.position.set(x, y, z);
             mesh.castShadow = true;
             mesh.receiveShadow = true;
-            mesh.visible = visible;
             scene.add(mesh);
 
-            // Enregistrer pour la gestion des collisions
             const box = new THREE.Box3().setFromObject(mesh);
             colliders.push(box);
             return mesh;
         }
 
-        // ==========================================
-        // 4. ARCHITECTURE DU CHÂTEAU COLOSSAL (10X PLUS GRAND)
-        // ==========================================
         function createColossalCastle() {
-            const cx = 0, cz = -100; // Position centrale du château
+            const cx = 0, cz = -100;
+            const hallW = 80, hallH = 35, hallD = 120;
 
-            // --- 1. GRANDE SALLE (BASE RDC) ---
-            const hallW = 80, hallH = 30, hallD = 120;
-            
-            // Murs Extérieurs de la Grande Salle (laissant l'intérieur creux)
-            createBoxCollider(cx - hallW/2, hallH/2, cz, 2, hallH, hallD, wallMat); // Mur Gauche
-            createBoxCollider(cx + hallW/2, hallH/2, cz, 2, hallH, hallD, wallMat); // Mur Droit
-            createBoxCollider(cx, hallH/2, cz - hallD/2, hallW, hallH, 2, wallMat); // Mur Fond
+            // --- MURS EXTERIEURS DU CHÂTEAU ---
+            createBoxCollider(cx - hallW/2, hallH/2, cz, 2, hallH, hallD, wallMat); // Gauche
+            createBoxCollider(cx + hallW/2, hallH/2, cz, 2, hallH, hallD, wallMat); // Droit
+            createBoxCollider(cx, hallH/2, cz - hallD/2, hallW, hallH, 2, wallMat); // Fond
 
-            // Mur Avant avec ouverture de Porte
+            // Mur Façade (avec passage pour l'entrée)
             createBoxCollider(cx - 25, hallH/2, cz + hallD/2, 30, hallH, 2, wallMat);
             createBoxCollider(cx + 25, hallH/2, cz + hallD/2, 30, hallH, 2, wallMat);
-            createBoxCollider(cx, hallH - 5, cz + hallD/2, 20, 10, 2, wallMat); // Arche au-dessus de la porte
+            createBoxCollider(cx, hallH - 5, cz + hallD/2, 20, 10, 2, wallMat); // Arche haut
 
-            // Toit de la Grande Salle
-            const roofGeo = new THREE.ConeGeometry(60, 25, 4);
-            const roof = new THREE.Mesh(roofGeo, roofMat);
-            roof.position.set(cx, hallH + 12.5, cz);
-            roof.rotation.y = Math.PI / 4;
-            scene.add(roof);
-
-            // --- 2. SOLS & ÉTAGES INTERIEURS ---
-            // Sol du RDC
+            // --- ÉTAGES INTERIEURS ---
+            // Sol Rez-de-chaussée
             const floor0 = new THREE.Mesh(new THREE.BoxGeometry(hallW, 0.5, hallD), stoneMat);
             floor0.position.set(cx, 0.25, cz);
-            floor0.receiveShadow = true;
             scene.add(floor0);
 
-            // 1er Étage (Mezzanine partielle pour laisser la grande salle ouverte au milieu)
-            const floor1Left = createBoxCollider(cx - 25, 12, cz, 28, 1, hallD - 20, stoneMat);
-            const floor1Right = createBoxCollider(cx + 25, 12, cz, 28, 1, hallD - 20, stoneMat);
+            // 1er Étage (Plancher praticable)
+            createBoxCollider(cx - 25, 12, cz, 28, 1, hallD - 20, stoneMat);
+            createBoxCollider(cx + 25, 12, cz, 28, 1, hallD - 20, stoneMat);
 
             // 2ème Étage
-            const floor2 = createBoxCollider(cx, 22, cz - 20, hallW - 10, 1, 60, stoneMat);
+            createBoxCollider(cx, 24, cz - 20, hallW - 10, 1, 60, stoneMat);
 
-            // --- 3. ESCALIERS INTERIEURS PRATICABLES (MARCHES SOLIDES) ---
-            createStaircase(cx - 10, 0, cz + 30, 20, 12, 20); // Escalier RDC vers 1er Étage
-            createStaircase(cx + 10, 12, cz - 10, 20, 10, 18); // Escalier 1er vers 2ème Étage
+            // --- ESCALIERS SOLIDES ET PRATICABLES ---
+            createStaircase(cx - 10, 0, cz + 30, 18, 12, 22);
+            createStaircase(cx + 10, 12, cz - 10, 18, 12, 22);
 
-            // --- 4. TOURS DE COIN MONUMENTALES ---
-            const towerRadius = 12, towerHeight = 70;
-            const towerOffsets = [
+            // --- TOURS D'ANGLE GIGANTESQUES ---
+            const r = 14, h = 75;
+            const towers = [
                 { x: cx - hallW/2 - 5, z: cz - hallD/2 - 5 },
                 { x: cx + hallW/2 + 5, z: cz - hallD/2 - 5 },
                 { x: cx - hallW/2 - 5, z: cz + hallD/2 + 5 },
                 { x: cx + hallW/2 + 5, z: cz + hallD/2 + 5 }
             ];
 
-            towerOffsets.forEach(pos => {
-                createTower(pos.x, pos.z, towerRadius, towerHeight);
+            towers.forEach(t => {
+                const towerGeo = new THREE.CylinderGeometry(r, r, h, 16);
+                const tower = new THREE.Mesh(towerGeo, stoneMat);
+                tower.position.set(t.x, h/2, t.z);
+                scene.add(tower);
+                colliders.push(new THREE.Box3().setFromObject(tower));
+
+                const roofGeo = new THREE.ConeGeometry(r + 2, 20, 16);
+                const roof = new THREE.Mesh(roofGeo, roofMat);
+                roof.position.set(t.x, h + 10, t.z);
+                scene.add(roof);
             });
-
-            // --- 5. DÉCORATION INTÉRIEURE (TABLES DE BANQUET) ---
-            for (let i = -30; i <= 20; i += 20) {
-                const table = new THREE.Mesh(new THREE.BoxGeometry(8, 2, 15), woodMat);
-                table.position.set(cx - 12, 1, cz + i);
-                table.castShadow = true;
-                scene.add(table);
-
-                const table2 = table.clone();
-                table2.position.x = cx + 12;
-                scene.add(table2);
-            }
         }
 
-        // Création d'un escalier composé de marches individuelles collidables
         function createStaircase(startX, startY, startZ, width, height, depth) {
             const steps = 12;
-            const stepHeight = height / steps;
-            const stepDepth = depth / steps;
+            const stepH = height / steps;
+            const stepD = depth / steps;
 
             for (let i = 0; i < steps; i++) {
                 const x = startX;
-                const y = startY + (i * stepHeight) + (stepHeight / 2);
-                const z = startZ - (i * stepDepth);
-                
-                createBoxCollider(x, y, z, width, stepHeight, stepDepth + 0.2, stoneMat);
+                const y = startY + (i * stepH) + (stepH / 2);
+                const z = startZ - (i * stepD);
+                createBoxCollider(x, y, z, width, stepH, stepD + 0.2, stoneMat);
             }
         }
 
-        // Création d'une tour avec cylindre de collision
-        function createTower(x, z, radius, height) {
-            const towerGeo = new THREE.CylinderGeometry(radius, radius, height, 16);
-            const tower = new THREE.Mesh(towerGeo, stoneMat);
-            tower.position.set(x, height / 2, z);
-            tower.castShadow = true;
-            scene.add(tower);
-
-            // Collision approximative sous forme de boîte pour la tour
-            const box = new THREE.Box3().setFromObject(tower);
-            colliders.push(box);
-
-            // Toit conique de la tour
-            const coneGeo = new THREE.ConeGeometry(radius + 2, 20, 16);
-            const cone = new THREE.Mesh(coneGeo, roofMat);
-            cone.position.set(x, height + 10, z);
-            scene.add(cone);
-        }
-
         // ==========================================
-        // 5. CRÉATION DU JOUEUR & PHYSIQUE
+        // JOUEUR ET DÉPLACEMENTS
         // ==========================================
         function createPlayer() {
             player = new THREE.Group();
             
-            // Corps du Sorcier
             const bodyGeo = new THREE.CylinderGeometry(0.6, 0.8, 2.5, 8);
             const bodyMat = new THREE.MeshStandardMaterial({ color: 0x2c3e50 });
             const body = new THREE.Mesh(bodyGeo, bodyMat);
             body.position.y = 1.25;
-            body.castShadow = true;
             player.add(body);
 
-            // Tête
             const headGeo = new THREE.SphereGeometry(0.5, 16, 16);
             const headMat = new THREE.MeshStandardMaterial({ color: 0xffdbac });
             const head = new THREE.Mesh(headGeo, headMat);
             head.position.y = 2.7;
             player.add(head);
 
-            // Chapeau de Sorcier
-            const hatGeo = new THREE.ConeGeometry(0.7, 1.5, 8);
-            const hatMat = new THREE.MeshStandardMaterial({ color: 0x1a252f });
-            const hat = new THREE.Mesh(hatGeo, hatMat);
-            hat.position.y = 3.6;
-            hat.rotation.x = 0.1;
-            player.add(hat);
-
-            player.position.set(0, 2, 50); // Devant le château
+            player.position.set(0, 2, 50);
             scene.add(player);
 
             playerBox = new THREE.Box3();
         }
 
-        // ==========================================
-        // 6. DÉPLACEMENTS ET COLLISIONS EXCLUSIVES
-        // ==========================================
         function updatePlayer(delta) {
-            const moveSpeed = (keys['ShiftLeft'] || keys['ShiftRight'] ? RUN_SPEED : SPEED) * delta;
+            const speed = (keys['ShiftLeft'] || keys['ShiftRight'] ? RUN_SPEED : SPEED) * delta;
             let moveDir = new THREE.Vector3(0, 0, 0);
 
             if (keys['KeyW'] || keys['ArrowUp']) moveDir.z -= 1;
@@ -366,53 +273,43 @@
 
             moveDir.normalize();
 
-            // Orientations par rapport à la caméra
             if (moveDir.length() > 0) {
                 const angle = Math.atan2(moveDir.x, moveDir.z) + cameraAngles.theta;
                 player.rotation.y = angle;
 
-                const moveVector = new THREE.Vector3(Math.sin(angle), 0, Math.cos(angle)).multiplyScalar(moveSpeed);
+                const moveX = Math.sin(angle) * speed;
+                const moveZ = Math.cos(angle) * speed;
 
-                // --- AXE X : Vérification Collision ---
-                player.position.x += moveVector.x;
+                // Test axe X
+                player.position.x += moveX;
                 updatePlayerBox();
-                if (checkCollisions()) {
-                    player.position.x -= moveVector.x; // Annuler mouvement X si collision
-                }
+                if (checkCollisions()) player.position.x -= moveX;
 
-                // --- AXE Z : Vérification Collision ---
-                player.position.z += moveVector.z;
+                // Test axe Z
+                player.position.z += moveZ;
                 updatePlayerBox();
-                if (checkCollisions()) {
-                    player.position.z -= moveVector.z; // Annuler mouvement Z si collision
-                }
+                if (checkCollisions()) player.position.z -= moveZ;
             }
 
-            // --- GRAVITÉ & SAUT ---
+            // Gravité et montées des marches
             playerVelocity.y += GRAVITY * delta;
             player.position.y += playerVelocity.y * delta;
             updatePlayerBox();
 
-            // Collision avec le sol / marches
-            let onGround = false;
             for (let box of colliders) {
                 if (playerBox.intersectsBox(box)) {
-                    // Si on tombe par le dessus de la boîte (marche / sol)
                     if (playerVelocity.y < 0 && player.position.y >= box.max.y - 0.5) {
                         player.position.y = box.max.y;
                         playerVelocity.y = 0;
-                        onGround = true;
                         canJump = true;
                         break;
                     }
                 }
             }
 
-            // Sol Naturel (Zero)
             if (player.position.y <= 0) {
                 player.position.y = 0;
                 playerVelocity.y = 0;
-                onGround = true;
                 canJump = true;
             }
 
@@ -421,15 +318,10 @@
                 canJump = false;
             }
 
-            // Synchronisation Caméra
             updateCamera();
-
-            // Resynchroniser avec le réseau local ou Firebase
-            broadcastPosition();
         }
 
         function updatePlayerBox() {
-            // Boîte de collision étroite entourant le joueur
             playerBox.setFromCenterAndSize(
                 new THREE.Vector3(player.position.x, player.position.y + 1.5, player.position.z),
                 new THREE.Vector3(1.2, 3.0, 1.2)
@@ -439,7 +331,6 @@
         function checkCollisions() {
             for (let box of colliders) {
                 if (playerBox.intersectsBox(box)) {
-                    // Ne déclencher la collision murale que si on n'est pas au-dessus de l'objet
                     if (player.position.y < box.max.y - 0.4) {
                         return true;
                     }
@@ -456,29 +347,22 @@
             camera.lookAt(player.position.x, player.position.y + 2, player.position.z);
         }
 
-        // ==========================================
-        // 7. CONTRÔLES SOURIS & CLAVIER
-        // ==========================================
         function setupControls() {
-            window.addEventListener('keydown', (e) => {
+            window.addEventListener('keydown', e => {
                 if (document.activeElement === document.getElementById('chat-input')) return;
                 keys[e.code] = true;
             });
+            window.addEventListener('keyup', e => { keys[e.code] = false; });
 
-            window.addEventListener('keyup', (e) => {
-                keys[e.code] = false;
-            });
-
-            window.addEventListener('mousedown', (e) => {
+            window.addEventListener('mousedown', e => {
                 if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'BUTTON') {
                     isDragging = true;
                     previousMousePosition = { x: e.clientX, y: e.clientY };
                 }
             });
+            window.addEventListener('mouseup', () => isDragging = false);
 
-            window.addEventListener('mouseup', () => { isDragging = false; });
-
-            window.addEventListener('mousemove', (e) => {
+            window.addEventListener('mousemove', e => {
                 if (!isDragging) return;
                 const deltaX = e.clientX - previousMousePosition.x;
                 const deltaY = e.clientY - previousMousePosition.y;
@@ -490,20 +374,6 @@
             });
         }
 
-        // ==========================================
-        // 8. RESEAU LOCAL & CHAT
-        // ==========================================
-        function broadcastPosition() {
-            const data = {
-                type: 'move',
-                x: player.position.x,
-                y: player.position.y,
-                z: player.position.z,
-                rot: player.rotation.y
-            };
-            localChannel.postMessage(data);
-        }
-
         function setupChat() {
             const input = document.getElementById('chat-input');
             const btn = document.getElementById('chat-send');
@@ -511,26 +381,22 @@
 
             function sendMessage() {
                 const text = input.value.trim();
-                if (text === '') return;
-
+                if (!text) return;
                 const msgDiv = document.createElement('div');
                 msgDiv.innerHTML = `<b>Vous:</b> ${text}`;
                 messages.appendChild(msgDiv);
                 messages.scrollTop = messages.scrollHeight;
-
-                localChannel.postMessage({ type: 'chat', text: text });
+                localChannel.postMessage({ type: 'chat', text });
                 input.value = '';
             }
 
             btn.addEventListener('click', sendMessage);
-            input.addEventListener('keydown', (e) => {
-                if (e.key === 'Enter') sendMessage();
-            });
+            input.addEventListener('keydown', e => { if (e.key === 'Enter') sendMessage(); });
 
-            localChannel.onmessage = (event) => {
-                if (event.data.type === 'chat') {
+            localChannel.onmessage = e => {
+                if (e.data.type === 'chat') {
                     const msgDiv = document.createElement('div');
-                    msgDiv.innerHTML = `<b style="color:#3498db;">Ami:</b> ${event.data.text}`;
+                    msgDiv.innerHTML = `<b style="color:#3498db;">Ami:</b> ${e.data.text}`;
                     messages.appendChild(msgDiv);
                     messages.scrollTop = messages.scrollHeight;
                 }
@@ -543,20 +409,14 @@
             renderer.setSize(window.innerWidth, window.innerHeight);
         }
 
-        // ==========================================
-        // 9. BOUCLE DE JEU (ANIMATION)
-        // ==========================================
         let clock = new THREE.Clock();
-
         function animate() {
             requestAnimationFrame(animate);
             const delta = Math.min(clock.getDelta(), 0.1);
-            
             updatePlayer(delta);
             renderer.render(scene, camera);
         }
 
-        // Lancement au chargement complet de la page
         window.onload = init;
     </script>
 </body>
