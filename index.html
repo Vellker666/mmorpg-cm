@@ -73,29 +73,35 @@
     <!-- Réticule de visée -->
     <div id="crosshair" class="hidden"></div>
 
-    <!-- UI: Écran de Création de Personnage -->
+    <!-- UI: Écran de Création de Personnage & Code d'Invitation -->
     <div id="character-creation-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/90 backdrop-blur-md">
         <div class="rpg-box w-full max-w-lg p-8 rounded-2xl border-2 border-amber-500 shadow-2xl text-center">
             <h1 class="fantasy-font text-3xl font-bold text-amber-400 mb-2 tracking-wider">CRÉER VOTRE HÉROS</h1>
-            <p class="text-xs text-slate-400 mb-6 uppercase tracking-widest">Aventure Médiévale & Housing</p>
+            <p class="text-xs text-slate-400 mb-6 uppercase tracking-widest">Aventure Médiévale & Sorcellerie</p>
 
             <div class="space-y-4 text-left">
-                <div>
-                    <label class="block text-xs font-semibold uppercase tracking-wider text-amber-200 mb-1">Nom du Héros</label>
-                    <input type="text" id="hero-name-input" value="Aventurier" maxlength="16" class="w-full bg-slate-900/80 border border-amber-500/40 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-amber-400 text-sm">
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-semibold uppercase tracking-wider text-amber-200 mb-1">Nom du Sorcier</label>
+                        <input type="text" id="hero-name-input" value="Aventurier" maxlength="16" class="w-full bg-slate-900/80 border border-amber-500/40 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-amber-400 text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold uppercase tracking-wider text-amber-200 mb-1"><i class="fa-solid fa-key text-amber-400 mr-1"></i> Code d'invitation / Salon</label>
+                        <input type="text" id="invite-code-input" value="POUDLARD1" maxlength="12" placeholder="Ex: AMIS123" class="w-full bg-slate-900/80 border border-amber-500/40 rounded-lg px-4 py-2 text-amber-300 font-bold focus:outline-none focus:border-amber-400 text-sm">
+                    </div>
                 </div>
 
                 <div class="grid grid-cols-2 gap-4">
                     <div>
-                        <label class="block text-xs font-semibold uppercase tracking-wider text-amber-200 mb-1">Couleur de Peau</label>
+                        <label class="block text-xs font-semibold uppercase tracking-wider text-amber-200 mb-1">Peau</label>
                         <input type="color" id="skin-color-input" value="#fbcfe8" class="w-full h-10 bg-slate-900 border border-amber-500/40 rounded-lg cursor-pointer">
                     </div>
                     <div>
-                        <label class="block text-xs font-semibold uppercase tracking-wider text-amber-200 mb-1">Cheveux</label>
-                        <input type="color" id="hair-color-input" value="#f59e0b" class="w-full h-10 bg-slate-900 border border-amber-500/40 rounded-lg cursor-pointer">
+                        <label class="block text-xs font-semibold uppercase tracking-wider text-amber-200 mb-1">Chapeau de Sorcier</label>
+                        <input type="color" id="hat-color-input" value="#1e1b4b" class="w-full h-10 bg-slate-900 border border-amber-500/40 rounded-lg cursor-pointer">
                     </div>
                     <div>
-                        <label class="block text-xs font-semibold uppercase tracking-wider text-amber-200 mb-1">Haut / Tunique</label>
+                        <label class="block text-xs font-semibold uppercase tracking-wider text-amber-200 mb-1">Robe / Tunique</label>
                         <input type="color" id="top-color-input" value="#2563eb" class="w-full h-10 bg-slate-900 border border-amber-500/40 rounded-lg cursor-pointer">
                     </div>
                     <div>
@@ -117,13 +123,13 @@
         <div class="flex justify-between items-start">
             <div class="rpg-box px-4 py-2 rounded-xl flex items-center space-x-3 pointer-events-auto">
                 <div class="w-10 h-10 rounded-full bg-amber-500/20 border border-amber-400 flex items-center justify-center text-amber-400 font-bold">
-                    <i class="fa-solid fa-user-shield text-lg"></i>
+                    <i class="fa-solid fa-hat-wizard text-lg"></i>
                 </div>
                 <div>
                     <div id="hud-hero-name" class="font-bold text-amber-300 text-sm">Aventurier</div>
                     <div class="text-xs text-emerald-400 flex items-center gap-1">
                         <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-                        Connecté au Royaume
+                        Salon: <span id="hud-room-code" class="font-bold text-amber-200">POUDLARD1</span>
                     </div>
                 </div>
             </div>
@@ -250,9 +256,9 @@
         const db = getFirestore(app);
 
         signInAnonymously(auth).then((userCred) => {
-            window.MMO_NET.initNetwork(db, 'fantasy-mmorpg-poudlard', userCred.user.uid);
+            window.MMO_NET.initNetwork(db, userCred.user.uid);
         }).catch(() => {
-            window.MMO_NET.initNetwork(null, 'local', 'local_user');
+            window.MMO_NET.initNetwork(null, 'local_user');
         });
     </script>
 
@@ -260,12 +266,15 @@
     <script>
         // Global Network Bridge
         window.MMO_NET = {
-            db: null, appId: null, userId: null,
-            initNetwork(db, appId, userId) {
+            db: null, roomCode: 'POUDLARD1', userId: null,
+            initNetwork(db, userId) {
                 this.db = db;
-                this.appId = appId;
                 this.userId = userId;
-                if (db) {
+            },
+
+            joinRoom(code) {
+                this.roomCode = code.toUpperCase().trim() || 'POUDLARD1';
+                if (this.db) {
                     this.listenToPlayers();
                     this.listenToLands();
                 }
@@ -274,7 +283,7 @@
             sendPlayerTransform(data) {
                 if (!this.db || !this.userId) return;
                 const { doc, setDoc } = window.FirebaseFirestore;
-                setDoc(doc(this.db, 'artifacts', this.appId, 'public', 'data', 'players', this.userId), {
+                setDoc(doc(this.db, 'artifacts', `room_${this.roomCode}`, 'public', 'data', 'players', this.userId), {
                     name: data.name,
                     colorData: data.colorData,
                     x: data.x, y: data.y, z: data.z,
@@ -286,7 +295,7 @@
             listenToPlayers() {
                 if (!this.db) return;
                 const { collection, onSnapshot } = window.FirebaseFirestore;
-                onSnapshot(collection(this.db, 'artifacts', this.appId, 'public', 'data', 'players'), (snapshot) => {
+                onSnapshot(collection(this.db, 'artifacts', `room_${this.roomCode}`, 'public', 'data', 'players'), (snapshot) => {
                     snapshot.docChanges().forEach((change) => {
                         const id = change.doc.id;
                         if (id === this.userId) return;
@@ -302,14 +311,14 @@
             },
 
             async buyLand(landId, houseType) {
-                if (!this.db || !this.userId) return true; // Mode solo/fallback
+                if (!this.db || !this.userId) return true;
                 const { doc, getDoc, setDoc } = window.FirebaseFirestore;
-                const landDoc = doc(this.db, 'artifacts', this.appId, 'public', 'data', 'lands', `land_${landId}`);
+                const landDoc = doc(this.db, 'artifacts', `room_${this.roomCode}`, 'public', 'data', 'lands', `land_${landId}`);
                 
                 try {
                     const snap = await getDoc(landDoc);
                     if (snap.exists() && snap.data().ownerId && snap.data().ownerId !== this.userId) {
-                        alert("Ce terrain appartient déjà à un autre joueur !");
+                        alert("Ce terrain appartient déjà à un autre joueur dans ce salon !");
                         return false;
                     }
                     await setDoc(landDoc, {
@@ -321,22 +330,14 @@
                     }, { merge: true });
                     return true;
                 } catch(e) {
-                    console.error("Land buy error", e);
                     return true;
                 }
-            },
-
-            async saveDecorations(landId, items) {
-                if (!this.db || !this.userId) return;
-                const { doc, updateDoc } = window.FirebaseFirestore;
-                const landDoc = doc(this.db, 'artifacts', this.appId, 'public', 'data', 'lands', `land_${landId}`);
-                await updateDoc(landDoc, { items: items }).catch(()=>{});
             },
 
             listenToLands() {
                 if (!this.db) return;
                 const { collection, onSnapshot } = window.FirebaseFirestore;
-                onSnapshot(collection(this.db, 'artifacts', this.appId, 'public', 'data', 'lands'), (snapshot) => {
+                onSnapshot(collection(this.db, 'artifacts', `room_${this.roomCode}`, 'public', 'data', 'lands'), (snapshot) => {
                     snapshot.docs.forEach((docSnap) => {
                         window.GameEngine.syncLandData(docSnap.data());
                     });
@@ -346,7 +347,7 @@
 
         const GameEngine = {
             scene: null, camera: null, renderer: null,
-            colliders: [], // Boîtes de collision strictes (murs et escaliers)
+            colliders: [],
             localPlayer: {
                 mesh: null, name: "Héros", colorData: {},
                 x: 0, y: 0, z: 50, ry: 0,
@@ -360,18 +361,15 @@
             interactiveObjects: [],
             currentInteraction: null,
             
-            // Mode Construction (Build Mode)
             buildMode: false,
             selectedBuildItem: null,
             previewMesh: null,
             previewRotation: 0,
             
-            // Caméra
             isDragging: false,
             prevMouse: { x: 0, y: 0 },
             cameraAngles: { theta: 0, phi: 0.4 },
 
-            // Catalogue d'Objets de Déco
             catalog: [
                 { id: 'chair', name: 'Chaise de Bois', cat: 'interior', type: 'box', size: [1, 1.2, 1], color: 0x78350f },
                 { id: 'table', name: 'Table de Banquet', cat: 'interior', type: 'box', size: [2.5, 1.2, 1.5], color: 0x451a03 },
@@ -385,8 +383,8 @@
                 const container = document.getElementById('canvas-container');
                 
                 this.scene = new THREE.Scene();
-                this.scene.background = new THREE.Color(0x87ceeb); // Ciel Anime Blue
-                this.scene.fog = new THREE.FogExp2(0x1a2e26, 0.012); // Brouillard de forêt
+                this.scene.background = new THREE.Color(0x87ceeb);
+                this.scene.fog = new THREE.FogExp2(0x1a2e26, 0.012);
 
                 this.camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
 
@@ -397,17 +395,13 @@
                 this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
                 container.appendChild(this.renderer.domElement);
 
-                // Éclairage
                 this.setupLighting();
-
-                // Construction de l'univers
                 this.buildWorldEnvironment();
                 this.buildColossalCastle();
                 this.buildVillageCenter();
                 this.generate35Lands();
                 this.buildImpenetrableForest();
 
-                // UI & Contrôles
                 this.setupUIEvents();
                 this.setupControls();
                 this.renderCatalog('interior');
@@ -436,7 +430,6 @@
                 terrain.receiveShadow = true;
                 this.scene.add(terrain);
 
-                // Chemin central en pavés
                 const roadGeo = new THREE.RingGeometry(18, 32, 32);
                 roadGeo.rotateX(-Math.PI / 2);
                 const roadMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8, roughness: 0.9 });
@@ -467,34 +460,27 @@
                 const roofMat = new THREE.MeshStandardMaterial({ color: 0x1c2833, roughness: 0.5 });
                 const woodMat = new THREE.MeshStandardMaterial({ color: 0x4a2e12, roughness: 0.7 });
 
-                // Murs extérieurs du château (intérieur creux et explorable)
                 this.createColliderBox(cx - hallW/2, hallH/2, cz, 2, hallH, hallD, wallMat);
                 this.createColliderBox(cx + hallW/2, hallH/2, cz, 2, hallH, hallD, wallMat);
                 this.createColliderBox(cx, hallH/2, cz - hallD/2, hallW, hallH, 2, wallMat);
 
-                // Mur Façade (avec ouverture d'entrée)
                 this.createColliderBox(cx - 30, hallH/2, cz + hallD/2, 30, hallH, 2, wallMat);
                 this.createColliderBox(cx + 30, hallH/2, cz + hallD/2, 30, hallH, 2, wallMat);
                 this.createColliderBox(cx, hallH - 6, cz + hallD/2, 30, 12, 2, wallMat);
 
-                // Sol Rez-de-Chaussée
                 const floor0 = new THREE.Mesh(new THREE.BoxGeometry(hallW, 0.6, hallD), stoneMat);
                 floor0.position.set(cx, 0.3, cz);
                 floor0.receiveShadow = true;
                 this.scene.add(floor0);
 
-                // 1er Étage Mezzanine
                 this.createColliderBox(cx - 28, 14, cz, 30, 1, hallD - 20, stoneMat);
                 this.createColliderBox(cx + 28, 14, cz, 30, 1, hallD - 20, stoneMat);
 
-                // 2ème Étage Donjon
                 this.createColliderBox(cx, 26, cz - 20, hallW - 15, 1, 70, stoneMat);
 
-                // Escaliers solides et praticables (marches physiques)
                 this.buildSolidStaircase(cx - 12, 0, cz + 40, 20, 14, 25);
                 this.buildSolidStaircase(cx + 12, 14, cz - 10, 20, 12, 22);
 
-                // Tours monumentales d'angle
                 const towerRadius = 14, towerHeight = 85;
                 const towers = [
                     { x: cx - hallW/2 - 6, z: cz - hallD/2 - 6 },
@@ -513,7 +499,6 @@
                     this.scene.add(roof);
                 });
 
-                // Décoration : Tables de banquet
                 for (let i = -30; i <= 20; i += 20) {
                     const table = new THREE.Mesh(new THREE.BoxGeometry(8, 2, 15), woodMat);
                     table.position.set(cx - 12, 1, cz + i);
@@ -524,8 +509,7 @@
                     this.scene.add(table2);
                 }
 
-                // PNJ Garde
-                this.createNPC("Garde du Château", 0, 0, -32, "Salutations aventurier ! Le château de Poudlard est ouvert. Explorez la Grande Salle et louez un terrain dans la vallée !");
+                this.createNPC("Garde du Château", 0, 0, -32, "Salutations sorcier ! Le château de Poudlard est ouvert. Explorez la Grande Salle et louez un terrain dans la vallée !");
             },
 
             buildSolidStaircase(startX, startY, startZ, width, height, depth) {
@@ -584,7 +568,6 @@
                         const landGroup = new THREE.Group();
                         landGroup.position.set(x, 0, z);
 
-                        // Bordure
                         const border = new THREE.Mesh(
                             new THREE.BoxGeometry(landSize, 0.1, landSize),
                             new THREE.MeshStandardMaterial({ color: 0xfef08a, transparent: true, opacity: 0.4 })
@@ -592,436 +575,4 @@
                         border.position.y = 0.05;
                         landGroup.add(border);
 
-                        // Panneau
-                        const signPost = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.15, 2), new THREE.MeshStandardMaterial({ color: 0x78350f }));
-                        signPost.position.set(0, 1, landSize/2 + 0.5);
-                        const board = new THREE.Mesh(new THREE.BoxGeometry(1.5, 1, 0.2), new THREE.MeshStandardMaterial({ color: 0xd97706 }));
-                        board.position.set(0, 1.8, landSize/2 + 0.5);
-                        landGroup.add(signPost, board);
-                        this.scene.add(landGroup);
-
-                        this.lands.push({ id: count, x, z, size: landSize, ownerId: null, houseType: null, group: landGroup });
-                        this.interactiveObjects.push({ type: 'land', landId: count, position: new THREE.Vector3(x, 0, z + landSize/2 + 1), radius: 3 });
-                    }
-                }
-            },
-
-            buildImpenetrableForest() {
-                const innerRadius = 120, outerRadius = 180;
-                const treeMat = new THREE.MeshStandardMaterial({ color: 0x15803d, roughness: 0.9 });
-                const trunkMat = new THREE.MeshStandardMaterial({ color: 0x451a03 });
-
-                for (let i = 0; i < 350; i++) {
-                    const angle = Math.random() * Math.PI * 2;
-                    const dist = innerRadius + Math.random() * (outerRadius - innerRadius);
-                    const x = Math.cos(angle) * dist;
-                    const z = Math.sin(angle) * dist;
-
-                    const treeGroup = new THREE.Group();
-                    const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.7, 3), trunkMat);
-                    trunk.position.y = 1.5;
-                    treeGroup.add(trunk);
-
-                    const leaves = new THREE.Mesh(new THREE.ConeGeometry(3, 8, 5), treeMat);
-                    leaves.position.y = 5.5;
-                    treeGroup.add(leaves);
-
-                    treeGroup.position.set(x, 0, z);
-                    this.scene.add(treeGroup);
-                }
-            },
-
-            createNPC(name, x, y, z, dialogue) {
-                const npcGroup = new THREE.Group();
-                const body = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.7, 2.2, 8), new THREE.MeshStandardMaterial({ color: 0xd97706 }));
-                body.position.y = 1.1;
-                const head = new THREE.Mesh(new THREE.SphereGeometry(0.45, 16, 16), new THREE.MeshStandardMaterial({ color: 0xffdbac }));
-                head.position.y = 2.4;
-                npcGroup.add(body, head);
-                npcGroup.position.set(x, y, z);
-                this.scene.add(npcGroup);
-
-                this.interactiveObjects.push({ type: 'npc', name, text: dialogue, position: new THREE.Vector3(x, y, z), radius: 3.5 });
-            },
-
-            createPlayer(colors, name) {
-                const playerGroup = new THREE.Group();
-                
-                const skinMat = new THREE.MeshStandardMaterial({ color: colors.skin });
-                const hairMat = new THREE.MeshStandardMaterial({ color: colors.hair });
-                const topMat = new THREE.MeshStandardMaterial({ color: colors.top });
-                const bottomMat = new THREE.MeshStandardMaterial({ color: colors.bottom });
-
-                const body = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.7, 2.2, 8), topMat);
-                body.position.y = 1.1; body.castShadow = true;
-                playerGroup.add(body);
-
-                const head = new THREE.Mesh(new THREE.SphereGeometry(0.45, 16, 16), skinMat);
-                head.position.y = 2.4;
-                const hair = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.4, 0.9), hairMat);
-                hair.position.y = 2.7;
-                playerGroup.add(head, hair);
-
-                playerGroup.position.set(0, 2, 50);
-                this.scene.add(playerGroup);
-
-                this.localPlayer.mesh = playerGroup;
-                this.localPlayer.name = name;
-                this.localPlayer.colorData = colors;
-            },
-
-            setupUIEvents() {
-                document.getElementById('start-game-btn').addEventListener('click', () => {
-                    const name = document.getElementById('hero-name-input').value || 'Aventurier';
-                    const colors = {
-                        skin: document.getElementById('skin-color-input').value,
-                        hair: document.getElementById('hair-color-input').value,
-                        top: document.getElementById('top-color-input').value,
-                        bottom: document.getElementById('bottom-color-input').value
-                    };
-
-                    document.getElementById('character-creation-modal').style.display = 'none';
-                    document.getElementById('hud-overlay').classList.remove('hidden');
-                    document.getElementById('crosshair').classList.remove('hidden');
-                    document.getElementById('hud-hero-name').innerText = name;
-
-                    this.createPlayer(colors, name);
-                });
-
-                document.getElementById('confirm-buy-land-btn').addEventListener('click', async () => {
-                    const modal = document.getElementById('land-modal');
-                    const landId = parseInt(modal.dataset.landId);
-                    const houseType = modal.dataset.selectedHouse || 'cottage';
-                    
-                    const success = await window.MMO_NET.buyLand(landId, houseType);
-                    if (success) {
-                        modal.style.display = 'none';
-                        this.localPlayer.ownedLandId = landId;
-                        document.getElementById('housing-status-text').innerText = `Terrain #${landId} (${houseType})`;
-                        this.buildHouseOnLand(landId, houseType);
-                    }
-                });
-
-                document.getElementById('cancel-land-btn').addEventListener('click', () => {
-                    document.getElementById('land-modal').style.display = 'none';
-                });
-
-                document.getElementById('close-dialogue-btn').addEventListener('click', () => {
-                    document.getElementById('dialogue-modal').classList.add('hidden');
-                });
-
-                document.querySelectorAll('.house-option').forEach(el => {
-                    el.addEventListener('click', () => {
-                        document.querySelectorAll('.house-option').forEach(o => o.classList.remove('border-amber-400', 'bg-amber-500/10'));
-                        el.classList.add('border-amber-400', 'bg-amber-500/10');
-                        document.getElementById('land-modal').dataset.selectedHouse = el.dataset.house;
-                    });
-                });
-
-                document.querySelectorAll('.catalog-tab').forEach(tab => {
-                    tab.addEventListener('click', () => {
-                        document.querySelectorAll('.catalog-tab').forEach(t => t.classList.remove('text-amber-400', 'border-b-2', 'border-amber-400'));
-                        tab.classList.add('text-amber-400', 'border-b-2', 'border-amber-400');
-                        this.renderCatalog(tab.dataset.cat);
-                    });
-                });
-            },
-
-            renderCatalog(category) {
-                const container = document.getElementById('catalog-items');
-                container.innerHTML = '';
-                const items = this.catalog.filter(i => i.cat === category);
-
-                items.forEach(item => {
-                    const div = document.createElement('div');
-                    div.className = "p-2 rounded-lg border border-amber-500/30 bg-slate-900/60 hover:border-amber-400 cursor-pointer flex items-center justify-between text-xs";
-                    div.innerHTML = `<span class="font-bold text-amber-200">${item.name}</span><i class="fa-solid fa-plus text-amber-400"></i>`;
-                    div.addEventListener('click', () => this.selectBuildItem(item));
-                    container.appendChild(div);
-                });
-            },
-
-            selectBuildItem(item) {
-                this.selectedBuildItem = item;
-                if (this.previewMesh) this.scene.remove(this.previewMesh);
-
-                let geo;
-                if (item.type === 'box') geo = new THREE.BoxGeometry(...item.size);
-                else geo = new THREE.CylinderGeometry(item.size[0], item.size[0], item.size[1]);
-
-                const mat = new THREE.MeshStandardMaterial({ color: item.color, transparent: true, opacity: 0.6 });
-                this.previewMesh = new THREE.Mesh(geo, mat);
-                this.scene.add(this.previewMesh);
-            },
-
-            buildHouseOnLand(landId, houseType) {
-                const land = this.lands.find(l => l.id === landId);
-                if (!land) return;
-
-                if (this.builtLandMeshes[landId]) this.scene.remove(this.builtLandMeshes[landId]);
-
-                const group = new THREE.Group();
-                group.position.set(land.x, 0, land.z);
-
-                const woodMat = new THREE.MeshStandardMaterial({ color: 0x78350f });
-                const stoneMat = new THREE.MeshStandardMaterial({ color: 0x64748b });
-                const roofMat = new THREE.MeshStandardMaterial({ color: 0xb91c1c });
-
-                if (houseType === 'cottage') {
-                    const base = new THREE.Mesh(new THREE.BoxGeometry(8, 5, 8), woodMat);
-                    base.position.y = 2.5;
-                    const roof = new THREE.Mesh(new THREE.ConeGeometry(6.5, 4, 4), roofMat);
-                    roof.rotation.y = Math.PI/4;
-                    roof.position.y = 7;
-                    group.add(base, roof);
-                } else {
-                    const base = new THREE.Mesh(new THREE.BoxGeometry(10, 8, 10), stoneMat);
-                    base.position.y = 4;
-                    const roof = new THREE.Mesh(new THREE.ConeGeometry(8, 5, 4), roofMat);
-                    roof.rotation.y = Math.PI/4;
-                    roof.position.y = 10.5;
-                    group.add(base, roof);
-                }
-
-                this.scene.add(group);
-                this.builtLandMeshes[landId] = group;
-            },
-
-            setupControls() {
-                window.addEventListener('keydown', e => {
-                    this.keys[e.code] = true;
-
-                    if (e.code === 'KeyB') {
-                        if (this.localPlayer.ownedLandId) {
-                            this.buildMode = !this.buildMode;
-                            document.getElementById('build-catalog').style.display = this.buildMode ? 'flex' : 'none';
-                            document.getElementById('build-mode-indicator').classList.toggle('hidden', !this.buildMode);
-                            if (!this.buildMode && this.previewMesh) {
-                                this.scene.remove(this.previewMesh);
-                                this.previewMesh = null;
-                            }
-                        } else {
-                            alert("Achetez d'abord un terrain avec E pour pouvoir construire !");
-                        }
-                    }
-
-                    if (e.code === 'KeyR' && this.buildMode) {
-                        this.previewRotation += Math.PI / 4;
-                        if (this.previewMesh) this.previewMesh.rotation.y = this.previewRotation;
-                    }
-
-                    if (e.code === 'KeyE' && this.currentInteraction && !this.buildMode) {
-                        this.triggerInteraction(this.currentInteraction);
-                    }
-                });
-
-                window.addEventListener('keyup', e => { this.keys[e.code] = false; });
-
-                window.addEventListener('mousedown', e => {
-                    if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'BUTTON' && !e.target.closest('#build-catalog')) {
-                        if (e.button === 0) {
-                            this.isDragging = true;
-                            this.prevMouse = { x: e.clientX, y: e.clientY };
-
-                            if (this.buildMode && this.selectedBuildItem && this.previewMesh) {
-                                this.placeDecorationItem();
-                            }
-                        }
-                    }
-                });
-
-                window.addEventListener('mouseup', () => this.isDragging = false);
-
-                window.addEventListener('mousemove', e => {
-                    if (this.isDragging) {
-                        const dx = e.clientX - this.prevMouse.x;
-                        const dy = e.clientY - this.prevMouse.y;
-                        this.cameraAngles.theta -= dx * 0.005;
-                        this.cameraAngles.phi = Math.max(0.1, Math.min(Math.PI/2 - 0.1, this.cameraAngles.phi + dy * 0.005));
-                        this.prevMouse = { x: e.clientX, y: e.clientY };
-                    }
-
-                    if (this.buildMode && this.previewMesh && this.localPlayer.ownedLandId) {
-                        const land = this.lands.find(l => l.id === parseInt(this.localPlayer.ownedLandId));
-                        if (land) {
-                            this.previewMesh.position.set(land.x, 1, land.z);
-                        }
-                    }
-                });
-            },
-
-            placeDecorationItem() {
-                const landId = this.localPlayer.ownedLandId;
-                const land = this.lands.find(l => l.id === parseInt(landId));
-                if (!land) return;
-
-                const item = this.selectedBuildItem;
-                let geo;
-                if (item.type === 'box') geo = new THREE.BoxGeometry(...item.size);
-                else geo = new THREE.CylinderGeometry(item.size[0], item.size[0], item.size[1]);
-
-                const mesh = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color: item.color }));
-                mesh.position.set(land.x, item.size[1]/2, land.z);
-                mesh.rotation.y = this.previewRotation;
-                this.scene.add(mesh);
-            },
-
-            triggerInteraction(obj) {
-                if (obj.type === 'land') {
-                    const modal = document.getElementById('land-modal');
-                    modal.dataset.landId = obj.landId;
-                    document.getElementById('land-modal-title').innerText = `Terrain #${obj.landId}`;
-                    modal.style.display = 'flex';
-                } else if (obj.type === 'npc') {
-                    document.getElementById('npc-name').innerText = obj.name;
-                    document.getElementById('npc-text').innerText = obj.text;
-                    document.getElementById('dialogue-modal').classList.remove('hidden');
-                }
-            },
-
-            updatePlayer(delta) {
-                if (!this.localPlayer.mesh) return;
-                const p = this.localPlayer.mesh;
-                const speed = (this.keys['ShiftLeft'] ? 22 : 12) * delta;
-                let move = new THREE.Vector3();
-
-                if (this.keys['KeyW'] || this.keys['ArrowUp']) move.z -= 1;
-                if (this.keys['KeyS'] || this.keys['ArrowDown']) move.z += 1;
-                if (this.keys['KeyA'] || this.keys['ArrowLeft']) move.x -= 1;
-                if (this.keys['KeyD'] || this.keys['ArrowRight']) move.x += 1;
-                move.normalize();
-
-                if (move.length() > 0) {
-                    const angle = Math.atan2(move.x, move.z) + this.cameraAngles.theta;
-                    p.rotation.y = angle;
-                    const mx = Math.sin(angle) * speed;
-                    const mz = Math.cos(angle) * speed;
-
-                    p.position.x += mx;
-                    if (this.checkWallCollision()) p.position.x -= mx;
-
-                    p.position.z += mz;
-                    if (this.checkWallCollision()) p.position.z -= mz;
-                }
-
-                this.localPlayer.vy -= 30 * delta;
-                p.position.y += this.localPlayer.vy * delta;
-
-                const playerBox = new THREE.Box3().setFromObject(p);
-                let onGround = false;
-
-                for (let box of this.colliders) {
-                    if (playerBox.intersectsBox(box)) {
-                        if (this.localPlayer.vy < 0 && p.position.y >= box.max.y - 0.4) {
-                            p.position.y = box.max.y;
-                            this.localPlayer.vy = 0;
-                            onGround = true;
-                            break;
-                        }
-                    }
-                }
-
-                if (p.position.y <= 0) {
-                    p.position.y = 0;
-                    this.localPlayer.vy = 0;
-                    onGround = true;
-                }
-
-                if (this.keys['Space'] && onGround) {
-                    this.localPlayer.vy = 12;
-                }
-
-                this.updateCamera();
-                this.checkInteractions();
-
-                window.MMO_NET.sendPlayerTransform({
-                    name: this.localPlayer.name,
-                    colorData: this.localPlayer.colorData,
-                    x: p.position.x, y: p.position.y, z: p.position.z, ry: p.rotation.y
-                });
-            },
-
-            checkWallCollision() {
-                const box = new THREE.Box3().setFromObject(this.localPlayer.mesh);
-                for (let b of this.colliders) {
-                    if (box.intersectsBox(b) && this.localPlayer.mesh.position.y < b.max.y - 0.3) {
-                        return true;
-                    }
-                }
-                return false;
-            },
-
-            updateCamera() {
-                const p = this.localPlayer.mesh.position;
-                const dist = 16;
-                this.camera.position.x = p.x + dist * Math.sin(this.cameraAngles.theta) * Math.cos(this.cameraAngles.phi);
-                this.camera.position.y = p.y + 3 + dist * Math.sin(this.cameraAngles.phi);
-                this.camera.position.z = p.z + dist * Math.cos(this.cameraAngles.theta) * Math.cos(this.cameraAngles.phi);
-                this.camera.lookAt(p.x, p.y + 2, p.z);
-            },
-
-            checkInteractions() {
-                const p = this.localPlayer.mesh.position;
-                let found = null;
-                for (let obj of this.interactiveObjects) {
-                    if (p.distanceTo(obj.position) < obj.radius) {
-                        found = obj;
-                        break;
-                    }
-                }
-                const prompt = document.getElementById('interaction-prompt');
-                if (found) {
-                    prompt.classList.remove('hidden');
-                    document.getElementById('prompt-text').innerText = found.type === 'land' ? `Gérer le Terrain #${found.landId}` : `Parler à ${found.name}`;
-                    this.currentInteraction = found;
-                } else {
-                    prompt.classList.add('hidden');
-                    this.currentInteraction = null;
-                }
-            },
-
-            updateOtherPlayer(id, data) {
-                let mesh = this.otherPlayersMeshes[id];
-                if (!mesh) {
-                    mesh = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.7, 2.2, 8), new THREE.MeshStandardMaterial({ color: 0x3498db }));
-                    this.scene.add(mesh);
-                    this.otherPlayersMeshes[id] = mesh;
-                }
-                mesh.position.set(data.x, data.y, data.z);
-                mesh.rotation.y = data.ry;
-            },
-
-            removeOtherPlayer(id) {
-                if (this.otherPlayersMeshes[id]) {
-                    this.scene.remove(this.otherPlayersMeshes[id]);
-                    delete this.otherPlayersMeshes[id];
-                }
-            },
-
-            syncLandData(landData) {
-                const land = this.lands.find(l => l.id === landData.landId);
-                if (land) {
-                    land.ownerId = landData.ownerId;
-                    land.houseType = landData.houseType;
-                    if (landData.houseType) this.buildHouseOnLand(landData.landId, landData.houseType);
-                }
-            },
-
-            onWindowResize() {
-                this.camera.aspect = window.innerWidth / window.innerHeight;
-                this.camera.updateProjectionMatrix();
-                this.renderer.setSize(window.innerWidth, window.innerHeight);
-            },
-
-            animate() {
-                requestAnimationFrame(() => this.animate());
-                const delta = 0.016;
-                this.updatePlayer(delta);
-                this.renderer.render(this.scene, this.camera);
-            }
-        };
-
-        window.onload = () => GameEngine.init();
-    </script>
-</body>
-</html>
+                        const signPost = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.1
